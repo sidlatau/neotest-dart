@@ -18,21 +18,13 @@ function adapter.is_test_file(file_path)
 end
 
 -- remove surrounding quotes
-local function transform_test_name(name)
-	return name:gsub("^'(.*)'$", "%1")
+---@return string
+local function remove_surrounding_quates(name)
+	return name:gsub("^'''(.*)'''$", "%1"):gsub("^'(.*)'$", "%1"):gsub('^"(.*)"$', "%1")
 end
 
-local function generate_position_id(position, namespaces)
-	local prefix = {}
-	for _, namespace in ipairs(namespaces) do
-		if namespace.type ~= "file" then
-			table.insert(prefix, namespace.name)
-		end
-	end
-	local name = transform_test_name(position.name)
-	return table.concat(vim.tbl_flatten({ position.path, prefix, name }), "::")
-end
-
+---@async
+---@return neotest.Tree| nil
 function adapter.discover_positions(path)
 	local query = [[
   ;; group blocks
@@ -47,10 +39,15 @@ function adapter.discover_positions(path)
     (selector (argument_part (arguments (argument (string_literal) @test.name))))) 
     @test.definition
   ]]
-	return lib.treesitter.parse_positions(path, query, {
+	local tree = lib.treesitter.parse_positions(path, query, {
 		require_namespaces = false,
-		position_id = generate_position_id,
 	})
+	for _, position in tree:iter() do
+		if position.type == "test" or position.type == "namespace" then
+			position.name = remove_surrounding_quates(position.name)
+		end
+	end
+	return tree
 end
 
 function adapter.build_spec(args)
