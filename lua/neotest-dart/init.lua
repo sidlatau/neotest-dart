@@ -1,6 +1,7 @@
 local async = require("neotest.async")
 local Path = require("plenary.path")
 local lib = require("neotest.lib")
+local logger = require("neotest.logging")
 
 ---@type neotest.Adapter
 local adapter = { name = "neotest-dart" }
@@ -57,7 +58,6 @@ function adapter.build_spec(args)
     return
   end
   local position = tree:data()
-  vim.pretty_print(position)
   if position.type == "dir" then
     return
   end
@@ -72,7 +72,6 @@ function adapter.build_spec(args)
       table.insert(testNames, 1, { parent_pos.name })
     end
   end
-  vim.pretty_print(testNames)
 
   local command = vim.tbl_flatten({
     "fvm",
@@ -102,8 +101,18 @@ function adapter.results(_, result, tree)
   if not success then
     return {}
   end
-  vim.pretty_print(data)
+  local lines = vim.split(data, "\n")
   local results = {}
+  for _, line in ipairs(lines) do
+    if line ~= "" then
+      local ok, parsed = pcall(vim.json.decode, line, { luanil = { object = true } })
+      if not ok then
+        logger.error(string.format("Failed to parse test output: \n%s\n%s", parsed, lines), result.output)
+        return result
+      end
+      vim.pretty_print(parsed)
+    end
+  end
   for _, node in tree:iter_nodes() do
     local value = node:data()
     if value.type == "test" then
