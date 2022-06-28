@@ -20,7 +20,7 @@ end
 
 --- remove surrounding quotes
 ---@param name string
----@param prepare_for_summary boolean indicates that additional whitespace
+---@param prepare_for_summary boolean? indicates that additional whitespace
 --- trimming is needed to look pretty in summary
 ---@return string
 local function remove_surrounding_quates(name, prepare_for_summary)
@@ -168,6 +168,11 @@ local function construct_test_name_from_position(position_id)
   return name
 end
 
+local dart_to_neotest_status_map = {
+  success = "passed",
+  error = "failed",
+}
+
 ---@async
 ---@param _ neotest.RunSpec
 ---@param result neotest.StrategyResult
@@ -179,17 +184,19 @@ function adapter.results(_, result, tree)
     return {}
   end
   local lines = vim.split(data, "\n")
-  local test_result = marshal_test_results(lines)
-  vim.pretty_print(test_result)
+  local test_results = marshal_test_results(lines)
   local results = {}
   for _, node in tree:iter_nodes() do
     local value = node:data()
     if value.type == "test" then
       local test_name = construct_test_name_from_position(value.id)
-      results[value.id] = {
-        status = "failed",
-        short = "Short",
-      }
+      local test_result = test_results[test_name]
+      if test_result then
+        results[value.id] = {
+          status = dart_to_neotest_status_map[test_result.result],
+          short = test_result.message,
+        }
+      end
     end
   end
   return results
