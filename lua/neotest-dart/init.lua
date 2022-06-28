@@ -91,6 +91,50 @@ function adapter.build_spec(args)
   }
 end
 
+---@param lines string[]
+---@return table
+local function marshal_dart_output(lines)
+  local tests = {}
+  local parsedJsonLines = {}
+  for _, line in ipairs(lines) do
+    if line ~= "" then
+      local ok, parsed = pcall(vim.json.decode, line, { luanil = { object = true } })
+      if not ok then
+        logger.error(string.format("Failed to parse test output: \n%s\n%s", parsed, line))
+        return tests
+      end
+      table.insert(parsedJsonLines, parsed)
+    end
+  end
+  local testNamesByIds = {}
+
+  for _, line in ipairs(parsedJsonLines) do
+    if line.test then
+      table.insert(testNamesByIds, line.test.id, line.test.name)
+    end
+  end
+  for _, line in ipairs(parsedJsonLines) do
+    if line.testID then
+      local testName = testNamesByIds[line.testID]
+      if testName then
+        local testData = tests[testName] or {}
+        if line.result then
+          testData.result = line.result
+        end
+        if line.message then
+          testData.message = line.message
+        end
+        if line.error then
+          testData.error = line.error
+        end
+        tests[testName] = testData
+      end
+    end
+  end
+  vim.pretty_print(tests)
+  return tests
+end
+
 ---@async
 ---@param _ neotest.RunSpec
 ---@param result neotest.StrategyResult
@@ -102,17 +146,8 @@ function adapter.results(_, result, tree)
     return {}
   end
   local lines = vim.split(data, "\n")
+  local test_result = marshal_dart_output(lines)
   local results = {}
-  for _, line in ipairs(lines) do
-    if line ~= "" then
-      local ok, parsed = pcall(vim.json.decode, line, { luanil = { object = true } })
-      if not ok then
-        logger.error(string.format("Failed to parse test output: \n%s\n%s", parsed, lines), result.output)
-        return result
-      end
-      vim.pretty_print(parsed)
-    end
-  end
   for _, node in tree:iter_nodes() do
     local value = node:data()
     if value.type == "test" then
