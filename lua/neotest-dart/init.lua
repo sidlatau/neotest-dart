@@ -18,10 +18,17 @@ function adapter.is_test_file(file_path)
   return is_test
 end
 
--- remove surrounding quotes
+--- remove surrounding quotes
+---@param name string
+---@param prepare_for_summary boolean indicates that additional whitespace
+--- trimming is needed to look pretty in summary
 ---@return string
-local function remove_surrounding_quates(name)
-  return name:gsub("^'''(.*)'''$", "%1"):gsub("^'(.*)'$", "%1"):gsub('^"(.*)"$', "%1")
+local function remove_surrounding_quates(name, prepare_for_summary)
+  local trimmed = name:gsub("^'''(.*)'''$", "%1"):gsub("^'(.*)'$", "%1"):gsub('^"(.*)"$', "%1"):gsub("^\n(.*)$", "%1")
+  if prepare_for_summary then
+    return trimmed:gsub("^%s+(.*)\n.%s*$", "%1")
+  end
+  return trimmed
 end
 
 ---@async
@@ -45,12 +52,15 @@ function adapter.discover_positions(path)
   })
   for _, position in tree:iter() do
     if position.type == "test" or position.type == "namespace" then
-      position.name = remove_surrounding_quates(position.name)
+      position.name = remove_surrounding_quates(position.name, true)
     end
   end
   return tree
 end
 
+---@async
+---@param args neotest.RunArgs
+---@return neotest.RunSpec
 function adapter.build_spec(args)
   local results_path = async.fn.tempname()
   local tree = args.tree
@@ -91,11 +101,24 @@ function adapter.build_spec(args)
   }
 end
 
+local function get_test_names_by_ids(parsed_jsons)
+  local map = {}
+
+  for _, line in ipairs(parsed_jsons) do
+    if line.test then
+      table.insert(map, line.test.id, line.test.name)
+    end
+  end
+  return map
+end
+
+--- Collects test output to single table where test information is accessible
+--- by test name
 ---@param lines string[]
 ---@return table
-local function marshal_dart_output(lines)
+local function marshal_test_results(lines)
   local tests = {}
-  local parsedJsonLines = {}
+  local parsed_jsons = {}
   for _, line in ipairs(lines) do
     if line ~= "" then
       local ok, parsed = pcall(vim.json.decode, line, { luanil = { object = true } })
@@ -103,36 +126,46 @@ local function marshal_dart_output(lines)
         logger.error(string.format("Failed to parse test output: \n%s\n%s", parsed, line))
         return tests
       end
-      table.insert(parsedJsonLines, parsed)
+      table.insert(parsed_jsons, parsed)
     end
   end
-  local testNamesByIds = {}
+  local test_names_by_ids = get_test_names_by_ids(parsed_jsons)
 
-  for _, line in ipairs(parsedJsonLines) do
-    if line.test then
-      table.insert(testNamesByIds, line.test.id, line.test.name)
-    end
-  end
-  for _, line in ipairs(parsedJsonLines) do
-    if line.testID then
-      local testName = testNamesByIds[line.testID]
-      if testName then
-        local testData = tests[testName] or {}
-        if line.result then
-          testData.result = line.result
+  for _, json in ipairs(parsed_jsons) do
+    if json.testID then
+      local test_name = test_names_by_ids[json.testID]
+      if test_name then
+        local test_data = tests[test_name] or {}
+        if json.result then
+          test_data.result = json.result
         end
-        if line.message then
-          testData.message = line.message
+        if json.message then
+          test_data.message = json.message
         end
-        if line.error then
-          testData.error = line.error
+        if json.error then
+          test_data.error = json.error
         end
-        tests[testName] = testData
+        tests[test_name] = test_data
       end
     end
   end
-  vim.pretty_print(tests)
   return tests
+end
+
+--- position id contains information enought to construct test name
+--- @returns string
+local function construct_test_name_from_position(position_id)
+  local parts = vim.split(position_id, "::")
+  local name_components = {}
+  for index, value in ipairs(parts) do
+    if index > 1 then
+      local component = remove_surrounding_quates(value)
+      table.insert(name_components, component)
+    end
+  end
+  local name = table.concat(name_components, " ")
+  vim.pretty_print(name)
+  return name
 end
 
 ---@async
@@ -146,11 +179,13 @@ function adapter.results(_, result, tree)
     return {}
   end
   local lines = vim.split(data, "\n")
-  local test_result = marshal_dart_output(lines)
+  local test_result = marshal_test_results(lines)
+  vim.pretty_print(test_result)
   local results = {}
   for _, node in tree:iter_nodes() do
     local value = node:data()
     if value.type == "test" then
+      local test_name = construct_test_name_from_position(value.id)
       results[value.id] = {
         status = "failed",
         short = "Short",
