@@ -21,7 +21,9 @@ use({
     require('neotest').setup({
       ...,
       adapters = {
-        require('neotest-dart'),
+        require('neotest-dart') {
+             fvm = false, -- takes priority over path, uses <workspace>/.fvm/flutter_sdk if enabled
+          },
       }
     })
   end
@@ -40,22 +42,7 @@ To test a single test hover over the test and run `require('neotest').run.run()`
 
 To test a file run `require('neotest').run.run(vim.fn.expand('%'))`
 
-#### Test directory
-
-To test a directory run `require('neotest').run.run("path/to/directory")`
-
-#### Test suite
-
-To test the full test suite run `require('neotest').run.run("path/to/root_project")`
-e.g. `require('neotest').run.run(vim.fn.getcwd())`, presuming that vim's directory is the same as the project root
-
 ## Contributing
 
 This project is maintained by the nvim dart community. Please raise a PR if you are interested in adding new functionality or fixing any bugs
-If you are unsure of how this plugin works please read the [Writing adapters](https://github.com/nvim-neotest/neotest#writing-adapters) section of the Neotest README.
-
-If you are new to `lua` please follow any of the following resources:
-
-- https://learnxinyminutes.com/docs/lua/
-- https://www.lua.org/manual/5.1/
-- https://github.com/nanotee/nvim-lua-guide
+If you are unsure of how this plugin works please read the [Writing adapters](https://github.com/nvim-neotest/neotest#writing-adapters) section of the Neotest README. When submitting a bug, please include an example spec that can be tested.

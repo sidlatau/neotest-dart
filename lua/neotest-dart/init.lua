@@ -8,6 +8,9 @@ local adapter = { name = 'neotest-dart' }
 
 adapter.root = lib.files.match_root_pattern('dart')
 
+--- Config property to control if FVM should be used
+local fvm = false
+
 function adapter.is_test_file(file_path)
   if not vim.endswith(file_path, '.dart') then
     return false
@@ -96,18 +99,18 @@ function adapter.build_spec(args)
     test_argument = '--plain-name "' .. test_name .. '"'
   end
 
-  local command = vim.tbl_flatten({
-    'fvm',
+  local command_parts = {
+    fvm and 'fvm' or '',
     'flutter',
     'test',
     position.path,
     test_argument,
     '--reporter',
     'json',
-  })
-
+  }
+  local command = table.concat(command_parts, ' ')
   return {
-    command = table.concat(command, ' '),
+    command = command,
     context = {
       results_path = results_path,
       file = position.path,
@@ -218,7 +221,8 @@ function adapter.results(_, result, tree)
 end
 
 setmetatable(adapter, {
-  __call = function()
+  __call = function(_, config)
+    fvm = config.fvm
     return adapter
   end,
 })
