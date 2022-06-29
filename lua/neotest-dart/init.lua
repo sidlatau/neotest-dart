@@ -123,7 +123,7 @@ local function get_test_names_by_ids(parsed_jsons)
 
   for _, line in ipairs(parsed_jsons) do
     if line.test then
-      table.insert(map, line.test.id, line.test.name)
+      map[line.test.id] = line.test.name
     end
   end
   return map
@@ -162,6 +162,7 @@ local function marshal_test_results(lines)
         if json.error then
           test_data.error = json.error
         end
+        test_data.skipped = json.skipped
         tests[test_name] = test_data
       end
     end
@@ -175,6 +176,9 @@ local dart_to_neotest_status_map = {
 }
 
 local function highlight_as_error(message)
+  if message == nil then
+    return nil
+  end
   return message:gsub('^', '[31m'):gsub('$', '[0m')
 end
 
@@ -191,6 +195,15 @@ local function prepare_neotest_output(message)
   local messages = vim.split(message, '\n')
   vim.fn.writefile(messages, fname)
   return fname
+end
+
+---@param test_result table
+---@returns string
+local function construct_neotest_status(test_result)
+  if test_result.skipped then
+    return 'skipped'
+  end
+  return dart_to_neotest_status_map[test_result.result]
 end
 
 ---@async
@@ -213,7 +226,7 @@ function adapter.results(_, result, tree)
       local test_result = tests[test_name]
       if test_result then
         local neotest_result = {
-          status = dart_to_neotest_status_map[test_result.result],
+          status = construct_neotest_status(test_result),
           short = highlight_as_error(test_result.message),
           output = prepare_neotest_output(test_result.message),
         }
