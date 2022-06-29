@@ -1,20 +1,20 @@
-local async = require("neotest.async")
-local Path = require("plenary.path")
-local lib = require("neotest.lib")
-local logger = require("neotest.logging")
+local async = require('neotest.async')
+local Path = require('plenary.path')
+local lib = require('neotest.lib')
+local logger = require('neotest.logging')
 
 ---@type neotest.Adapter
-local adapter = { name = "neotest-dart" }
+local adapter = { name = 'neotest-dart' }
 
-adapter.root = lib.files.match_root_pattern("dart")
+adapter.root = lib.files.match_root_pattern('dart')
 
 function adapter.is_test_file(file_path)
-  if not vim.endswith(file_path, ".dart") then
+  if not vim.endswith(file_path, '.dart') then
     return false
   end
   local elems = vim.split(file_path, Path.path.sep)
   local file_name = elems[#elems]
-  local is_test = vim.endswith(file_name, "_test.dart")
+  local is_test = vim.endswith(file_name, '_test.dart')
   return is_test
 end
 
@@ -24,11 +24,30 @@ end
 --- trimming is needed to look pretty in summary
 ---@return string
 local function remove_surrounding_quates(name, prepare_for_summary)
-  local trimmed = name:gsub("^'''(.*)'''$", "%1"):gsub("^'(.*)'$", "%1"):gsub('^"(.*)"$', "%1"):gsub("^\n(.*)$", "%1")
+  local trimmed = name
+    :gsub("^'''(.*)'''$", '%1')
+    :gsub("^'(.*)'$", '%1')
+    :gsub('^"(.*)"$', '%1')
+    :gsub('^\n(.*)$', '%1')
   if prepare_for_summary then
-    return trimmed:gsub("^%s+(.*)\n.%s*$", "%1")
+    return trimmed:gsub('^%s+(.*)\n.%s*$', '%1')
   end
   return trimmed
+end
+
+--- position id contains information enought to construct test name
+--- @returns string
+local function construct_test_name_from_position(position_id)
+  local parts = vim.split(position_id, '::')
+  local name_components = {}
+  for index, value in ipairs(parts) do
+    if index > 1 then
+      local component = remove_surrounding_quates(value)
+      table.insert(name_components, component)
+    end
+  end
+  local name = table.concat(name_components, ' ')
+  return name
 end
 
 ---@async
@@ -51,7 +70,7 @@ function adapter.discover_positions(path)
     require_namespaces = false,
   })
   for _, position in tree:iter() do
-    if position.type == "test" or position.type == "namespace" then
+    if position.type == 'test' or position.type == 'namespace' then
       position.name = remove_surrounding_quates(position.name, true)
     end
   end
@@ -68,32 +87,27 @@ function adapter.build_spec(args)
     return
   end
   local position = tree:data()
-  if position.type == "dir" then
+  if position.type == 'dir' then
     return
   end
-  local testNames = {}
-  if position.type == "namespace" or position.type == "test" then
-    table.insert(testNames, 1, { position.name })
-    for parent in tree:iter_parents() do
-      local parent_pos = parent:data()
-      if parent_pos.type ~= "namespace" then
-        break
-      end
-      table.insert(testNames, 1, { parent_pos.name })
-    end
+  local test_argument = ''
+  if position.type == 'test' then
+    local test_name = construct_test_name_from_position(position.id)
+    test_argument = '--plain-name "' .. test_name .. '"'
   end
 
   local command = vim.tbl_flatten({
-    "fvm",
-    "flutter",
-    "test",
+    'fvm',
+    'flutter',
+    'test',
     position.path,
-    "--reporter",
-    "json",
+    test_argument,
+    '--reporter',
+    'json',
   })
 
   return {
-    command = table.concat(command, " "),
+    command = table.concat(command, ' '),
     context = {
       results_path = results_path,
       file = position.path,
@@ -120,16 +134,15 @@ local function marshal_test_results(lines)
   local tests = {}
   local parsed_jsons = {}
   for _, line in ipairs(lines) do
-    if line ~= "" then
+    if line ~= '' then
       local ok, parsed = pcall(vim.json.decode, line, { luanil = { object = true } })
       if not ok then
-        logger.error(string.format("Failed to parse test output: \n%s\n%s", parsed, line))
+        logger.error(string.format('Failed to parse test output: \n%s\n%s', parsed, line))
         return tests
       end
       table.insert(parsed_jsons, parsed)
     end
   end
-  vim.pretty_print(parsed_jsons)
   local test_names_by_ids = get_test_names_by_ids(parsed_jsons)
 
   for _, json in ipairs(parsed_jsons) do
@@ -153,37 +166,22 @@ local function marshal_test_results(lines)
   return tests
 end
 
---- position id contains information enought to construct test name
---- @returns string
-local function construct_test_name_from_position(position_id)
-  local parts = vim.split(position_id, "::")
-  local name_components = {}
-  for index, value in ipairs(parts) do
-    if index > 1 then
-      local component = remove_surrounding_quates(value)
-      table.insert(name_components, component)
-    end
-  end
-  local name = table.concat(name_components, " ")
-  return name
-end
-
 local dart_to_neotest_status_map = {
-  success = "passed",
-  error = "failed",
+  success = 'passed',
+  error = 'failed',
 }
 
 ---@param message string dart test output
 ---@returns string path to output file
 local function prepare_neotest_output(message)
   if message then
-    message = message:gsub("^", "[31m"):gsub("$", "[0m")
+    message = message:gsub('^', '[31m'):gsub('$', '[0m')
   else
     return nil
   end
 
   local fname = async.fn.tempname()
-  local messages = vim.split(message, "\n")
+  local messages = vim.split(message, '\n')
   vim.fn.writefile(messages, fname)
   return fname
 end
@@ -198,12 +196,12 @@ function adapter.results(_, result, tree)
   if not success then
     return {}
   end
-  local lines = vim.split(data, "\n")
+  local lines = vim.split(data, '\n')
   local tests = marshal_test_results(lines)
   local results = {}
   for _, node in tree:iter_nodes() do
     local value = node:data()
-    if value.type == "test" then
+    if value.type == 'test' then
       local test_name = construct_test_name_from_position(value.id)
       local test_result = tests[test_name]
       if test_result then
