@@ -174,11 +174,15 @@ local dart_to_neotest_status_map = {
   error = 'failed',
 }
 
+local function highlight_as_error(message)
+  return message:gsub('^', '[31m'):gsub('$', '[0m')
+end
+
 ---@param message string dart test output
 ---@returns string path to output file
 local function prepare_neotest_output(message)
   if message then
-    message = message:gsub('^', '[31m'):gsub('$', '[0m')
+    message = highlight_as_error(message)
   else
     return nil
   end
@@ -210,7 +214,7 @@ function adapter.results(_, result, tree)
       if test_result then
         local neotest_result = {
           status = dart_to_neotest_status_map[test_result.result],
-          short = test_result.message,
+          short = highlight_as_error(test_result.message),
           output = prepare_neotest_output(test_result.message),
         }
         results[value.id] = neotest_result
