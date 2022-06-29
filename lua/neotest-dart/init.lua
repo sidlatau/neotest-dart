@@ -129,6 +129,7 @@ local function marshal_test_results(lines)
       table.insert(parsed_jsons, parsed)
     end
   end
+  vim.pretty_print(parsed_jsons)
   local test_names_by_ids = get_test_names_by_ids(parsed_jsons)
 
   for _, json in ipairs(parsed_jsons) do
@@ -164,7 +165,6 @@ local function construct_test_name_from_position(position_id)
     end
   end
   local name = table.concat(name_components, " ")
-  vim.pretty_print(name)
   return name
 end
 
@@ -172,6 +172,21 @@ local dart_to_neotest_status_map = {
   success = "passed",
   error = "failed",
 }
+
+---@param message string dart test output
+---@returns string path to output file
+local function prepare_neotest_output(message)
+  if message then
+    message = message:gsub("^", "[31m"):gsub("$", "[0m")
+  else
+    return nil
+  end
+
+  local fname = async.fn.tempname()
+  local messages = vim.split(message, "\n")
+  vim.fn.writefile(messages, fname)
+  return fname
+end
 
 ---@async
 ---@param _ neotest.RunSpec
@@ -184,18 +199,20 @@ function adapter.results(_, result, tree)
     return {}
   end
   local lines = vim.split(data, "\n")
-  local test_results = marshal_test_results(lines)
+  local tests = marshal_test_results(lines)
   local results = {}
   for _, node in tree:iter_nodes() do
     local value = node:data()
     if value.type == "test" then
       local test_name = construct_test_name_from_position(value.id)
-      local test_result = test_results[test_name]
+      local test_result = tests[test_name]
       if test_result then
-        results[value.id] = {
+        local neotest_result = {
           status = dart_to_neotest_status_map[test_result.result],
           short = test_result.message,
+          output = prepare_neotest_output(test_result.message),
         }
+        results[value.id] = neotest_result
       end
     end
   end
