@@ -192,6 +192,15 @@ local function format_duration(milliseconds)
   return milliseconds .. 'ms.'
 end
 
+---@param output string
+---@return string
+local function sanitize_output(output)
+  if not output then
+    return output
+  end
+  return output:gsub('\r', '')
+end
+
 ---@param test_result table dart test result
 ---@param unparsable_lines table lines that was not possible to convert to json
 ---@returns string path to output file
@@ -199,7 +208,10 @@ local function prepare_neotest_output(test_result, unparsable_lines)
   local fname = async.fn.tempname()
   local file_output = {}
   if unparsable_lines then
-    table.insert(file_output, unparsable_lines)
+    for _, line in ipairs(unparsable_lines) do
+      local sanitized = sanitize_output(line)
+      table.insert(file_output, sanitized)
+    end
   end
   local message = test_result.message
   if message then
@@ -212,7 +224,7 @@ local function prepare_neotest_output(test_result, unparsable_lines)
     table.insert(file_output, 'Elapsed: ' .. test_time)
   end
   local flatten = vim.tbl_flatten(file_output)
-  vim.fn.writefile(flatten, fname)
+  vim.fn.writefile(flatten, fname, 'b')
   return fname
 end
 
