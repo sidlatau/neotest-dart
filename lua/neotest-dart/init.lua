@@ -146,7 +146,6 @@ local function marshal_test_results(lines)
       end
     end
   end
-  vim.pretty_print(parsed_jsons)
   local test_names_by_ids = get_test_names_by_ids(parsed_jsons)
 
   for _, json in ipairs(parsed_jsons) do
@@ -184,20 +183,36 @@ local function highlight_as_error(message)
   return message:gsub('^', '[31m'):gsub('$', '[0m')
 end
 
+---@returns string formated duration
+local function format_duration(milliseconds)
+  local seconds = milliseconds / 1000
+  if seconds > 0 then
+    return seconds .. 's.'
+  end
+  return milliseconds .. 'ms.'
+end
+
 ---@param test_result table dart test result
 ---@param unparsable_lines table lines that was not possible to convert to json
 ---@returns string path to output file
 local function prepare_neotest_output(test_result, unparsable_lines)
   local fname = async.fn.tempname()
+  local file_output = {}
   if unparsable_lines then
-    vim.fn.writefile(unparsable_lines, fname)
+    table.insert(file_output, unparsable_lines)
   end
   local message = test_result.message
   if message then
     message = highlight_as_error(message)
     local messages = vim.split(message, '\n')
-    vim.fn.writefile(messages, fname)
+    table.insert(file_output, messages)
   end
+  if test_result.time then
+    local test_time = format_duration(test_result.time)
+    table.insert(file_output, 'Elapsed: ' .. test_time)
+  end
+  local flatten = vim.tbl_flatten(file_output)
+  vim.fn.writefile(flatten, fname)
   return fname
 end
 
