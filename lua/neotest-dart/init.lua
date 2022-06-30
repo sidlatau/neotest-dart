@@ -1,7 +1,6 @@
 local async = require('neotest.async')
 local Path = require('plenary.path')
 local lib = require('neotest.lib')
-local logger = require('neotest.logging')
 
 ---@type neotest.Adapter
 local adapter = { name = 'neotest-dart' }
@@ -132,20 +131,22 @@ end
 --- Collects test output to single table where test information is accessible
 --- by test name
 ---@param lines string[]
----@return table
+---@return table, table
 local function marshal_test_results(lines)
   local tests = {}
   local parsed_jsons = {}
+  local unparsable_lines = {}
   for _, line in ipairs(lines) do
     if line ~= '' then
       local ok, parsed = pcall(vim.json.decode, line, { luanil = { object = true } })
-      if not ok then
-        logger.error(string.format('Failed to parse test output: \n%s\n%s', parsed, line))
-        return tests
+      if ok then
+        table.insert(parsed_jsons, parsed)
+      else
+        table.insert(unparsable_lines, line)
       end
-      table.insert(parsed_jsons, parsed)
     end
   end
+  vim.pretty_print(parsed_jsons)
   local test_names_by_ids = get_test_names_by_ids(parsed_jsons)
 
   for _, json in ipairs(parsed_jsons) do
@@ -163,11 +164,12 @@ local function marshal_test_results(lines)
           test_data.error = json.error
         end
         test_data.skipped = json.skipped
+        test_data.time = json.time
         tests[test_name] = test_data
       end
     end
   end
-  return tests
+  return tests, unparsable_lines
 end
 
 local dart_to_neotest_status_map = {
@@ -182,18 +184,20 @@ local function highlight_as_error(message)
   return message:gsub('^', '[31m'):gsub('$', '[0m')
 end
 
----@param message string dart test output
+---@param test_result table dart test result
+---@param unparsable_lines table lines that was not possible to convert to json
 ---@returns string path to output file
-local function prepare_neotest_output(message)
+local function prepare_neotest_output(test_result, unparsable_lines)
+  local fname = async.fn.tempname()
+  if unparsable_lines then
+    vim.fn.writefile(unparsable_lines, fname)
+  end
+  local message = test_result.message
   if message then
     message = highlight_as_error(message)
-  else
-    return nil
+    local messages = vim.split(message, '\n')
+    vim.fn.writefile(messages, fname)
   end
-
-  local fname = async.fn.tempname()
-  local messages = vim.split(message, '\n')
-  vim.fn.writefile(messages, fname)
   return fname
 end
 
@@ -217,7 +221,7 @@ function adapter.results(_, result, tree)
     return {}
   end
   local lines = vim.split(data, '\n')
-  local tests = marshal_test_results(lines)
+  local tests, unparsable_lines = marshal_test_results(lines)
   local results = {}
   for _, node in tree:iter_nodes() do
     local value = node:data()
@@ -228,7 +232,7 @@ function adapter.results(_, result, tree)
         local neotest_result = {
           status = construct_neotest_status(test_result),
           short = highlight_as_error(test_result.message),
-          output = prepare_neotest_output(test_result.message),
+          output = prepare_neotest_output(test_result, unparsable_lines),
         }
         results[value.id] = neotest_result
       end
