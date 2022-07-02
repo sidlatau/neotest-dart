@@ -95,6 +95,7 @@ function adapter.build_spec(args)
   local test_argument = ''
   if position.type == 'test' then
     local test_name = construct_test_name_from_position(position.id)
+    test_name = test_name:gsub('"', '\\"')
     test_argument = '--plain-name "' .. test_name .. '"'
   end
 
