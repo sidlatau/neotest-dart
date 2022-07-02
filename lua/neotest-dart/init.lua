@@ -203,6 +203,15 @@ local function sanitize_output(output)
   return output:gsub('\r', '')
 end
 
+---@param error string
+---@return string
+local function format_error(error)
+  -- remove file path from the beggining
+  error = error:gsub("^'file:.*dart': (.*)$", '%1')
+  error = highlight_as_error(error)
+  return error
+end
+
 ---@param test_result table dart test result
 ---@param unparsable_lines table lines that was not possible to convert to json
 ---@returns string path to output file
@@ -222,13 +231,13 @@ local function prepare_neotest_output(test_result, unparsable_lines)
     table.insert(file_output, messages)
   end
   if test_result.error then
-    local error = highlight_as_error(test_result.error)
+    local error = format_error(test_result.error)
     table.insert(file_output, error)
-    table.insert(file_output, '')
   end
   if test_result.stack_trace then
     local stack_trace = highlight_as_error(test_result.stack_trace)
     local stack_trace_lines = vim.split(stack_trace, '\n')
+    table.insert(file_output, '')
     table.insert(file_output, stack_trace_lines)
   end
   if test_result.time then
