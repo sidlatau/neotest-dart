@@ -162,6 +162,7 @@ local function marshal_test_results(lines)
         end
         if json.error then
           test_data.error = json.error
+          test_data.stack_trace = json.stackTrace
         end
         test_data.skipped = json.skipped
         test_data.time = json.time
@@ -219,6 +220,16 @@ local function prepare_neotest_output(test_result, unparsable_lines)
     message = highlight_as_error(message)
     local messages = vim.split(message, '\n')
     table.insert(file_output, messages)
+  end
+  if test_result.error then
+    local error = highlight_as_error(test_result.error)
+    table.insert(file_output, error)
+    table.insert(file_output, '')
+  end
+  if test_result.stack_trace then
+    local stack_trace = highlight_as_error(test_result.stack_trace)
+    local stack_trace_lines = vim.split(stack_trace, '\n')
+    table.insert(file_output, stack_trace_lines)
   end
   if test_result.time then
     local test_time = format_duration(test_result.time)
