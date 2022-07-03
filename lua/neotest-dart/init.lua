@@ -94,6 +94,35 @@ local function construct_test_argument(position, strategy)
   return test_argument
 end
 
+---@return table?
+local function get_strategy_config(strategy, script_args)
+  local config = {
+    dap = function()
+      local status_ok, dap = pcall(require, 'dap')
+      if not status_ok then
+        return
+      end
+      dap.adapters.dart_test = {
+        type = 'executable',
+        command = 'flutter',
+        args = { 'debug-adapter', '--test' },
+        options = { -- Dartls is slow to start so avoid warnings from nvim-dap
+          initialize_timeout_sec = 30,
+        },
+      }
+      return {
+        type = 'dart_test',
+        name = 'Neotest Debugger',
+        request = 'launch',
+        args = script_args,
+      }
+    end,
+  }
+  if config[strategy] then
+    return config[strategy]()
+  end
+end
+
 ---@async
 ---@param args neotest.RunArgs
 ---@return neotest.RunSpec
@@ -118,30 +147,7 @@ function adapter.build_spec(args)
     'json',
   }
 
-  local dap = require('dap')
-
-  local strategy_config
-  local config = {
-    dap = function()
-      dap.adapters.dart_test = {
-        type = 'executable',
-        command = 'flutter',
-        args = { 'debug-adapter', '--test' },
-        options = { -- Dartls is slow to start so avoid warnings from nvim-dap
-          initialize_timeout_sec = 30,
-        },
-      }
-      return {
-        type = 'dart_test',
-        name = 'Neotest Debugger',
-        request = 'launch',
-        args = test_argument,
-      }
-    end,
-  }
-  if config[args.strategy] then
-    strategy_config = config[args.strategy]()
-  end
+  local strategy_config = get_strategy_config(args.strategy, test_argument)
 
   local full_command = table.concat(vim.tbl_flatten(command_parts), ' ')
   return {
