@@ -127,6 +127,9 @@ function adapter.build_spec(args)
         type = 'executable',
         command = 'flutter',
         args = { 'debug-adapter', '--test' },
+        options = { -- Dartls is slow to start so avoid warnings from nvim-dap
+          initialize_timeout_sec = 30,
+        },
       }
       return {
         type = 'dart_test',
