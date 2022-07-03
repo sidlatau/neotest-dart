@@ -79,6 +79,21 @@ function adapter.discover_positions(path)
   return tree
 end
 
+local function construct_test_argument(position, strategy)
+  local test_argument = {}
+  if position.type == 'test' then
+    local test_name = construct_test_name_from_position(position.id)
+    test_name = test_name:gsub('"', '\\"')
+    table.insert(test_argument, '--plain-name')
+    if strategy == 'dap' then
+      table.insert(test_argument, test_name)
+    else
+      table.insert(test_argument, '"' .. test_name .. '"')
+    end
+  end
+  return test_argument
+end
+
 ---@async
 ---@param args neotest.RunArgs
 ---@return neotest.RunSpec
@@ -92,12 +107,7 @@ function adapter.build_spec(args)
   if position.type == 'dir' then
     return
   end
-  local test_argument = ''
-  if position.type == 'test' then
-    local test_name = construct_test_name_from_position(position.id)
-    test_name = test_name:gsub('"', '\\"')
-    test_argument = '--plain-name "' .. test_name .. '"'
-  end
+  local test_argument = construct_test_argument(position, args.strategy)
 
   local command_parts = {
     command,
@@ -107,13 +117,37 @@ function adapter.build_spec(args)
     '--reporter',
     'json',
   }
-  local command = table.concat(command_parts, ' ')
+
+  local dap = require('dap')
+
+  local strategy_config
+  local config = {
+    dap = function()
+      dap.adapters.dart_test = {
+        type = 'executable',
+        command = 'flutter',
+        args = { 'debug-adapter', '--test' },
+      }
+      return {
+        type = 'dart_test',
+        name = 'Neotest Debugger',
+        request = 'launch',
+        args = test_argument,
+      }
+    end,
+  }
+  if config[args.strategy] then
+    strategy_config = config[args.strategy]()
+  end
+
+  local full_command = table.concat(vim.tbl_flatten(command_parts), ' ')
   return {
-    command = command,
+    command = full_command,
     context = {
       results_path = results_path,
       file = position.path,
     },
+    strategy = strategy_config,
   }
 end
 
