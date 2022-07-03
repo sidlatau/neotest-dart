@@ -83,11 +83,11 @@ local function construct_test_argument(position, strategy)
   local test_argument = {}
   if position.type == 'test' then
     local test_name = construct_test_name_from_position(position.id)
-    test_name = test_name:gsub('"', '\\"')
     table.insert(test_argument, '--plain-name')
     if strategy == 'dap' then
       table.insert(test_argument, test_name)
     else
+      test_name = test_name:gsub('"', '\\"')
       table.insert(test_argument, '"' .. test_name .. '"')
     end
   end
