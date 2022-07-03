@@ -22,7 +22,9 @@ use({
       ...,
       adapters = {
         require('neotest-dart') {
-             fvm = false, -- takes priority over path, uses <workspace>/.fvm/flutter_sdk if enabled
+             command = 'flutter', -- Command being used to run tests. Defaults to `flutter`
+                                  -- Change it to `fvm flutter` if using FVM
+                                  -- change it to `dart` for Dart only tests
           },
       }
     })

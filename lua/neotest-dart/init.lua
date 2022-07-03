@@ -7,8 +7,8 @@ local adapter = { name = 'neotest-dart' }
 
 adapter.root = lib.files.match_root_pattern('dart')
 
---- Config property to control if FVM should be used
-local fvm = false
+--- Command to use for running tests. Value is set from config
+local command = 'flutter'
 
 function adapter.is_test_file(file_path)
   if not vim.endswith(file_path, '.dart') then
@@ -100,8 +100,7 @@ function adapter.build_spec(args)
   end
 
   local command_parts = {
-    fvm and 'fvm' or '',
-    'flutter',
+    command,
     'test',
     position.path,
     test_argument,
@@ -291,7 +290,9 @@ end
 
 setmetatable(adapter, {
   __call = function(_, config)
-    fvm = config.fvm
+    if config.command then
+      command = config.command
+    end
     return adapter
   end,
 })
