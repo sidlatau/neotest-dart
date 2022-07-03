@@ -34,15 +34,7 @@ use({
 
 ## Usage
 
-_NOTE_: all usages of `require('neotest').run.run` can be mapped to a command in your config (this is not included and should be done by the user)
-
-#### Test single function
-
-To test a single test hover over the test and run `require('neotest').run.run()`
-
-#### Test file
-
-To test a file run `require('neotest').run.run(vim.fn.expand('%'))`
+For usage of `Neotest` plugin please refer to [Neotest usage section](https://github.com/nvim-neotest/neotest#usage)
 
 ## Contributing
 
