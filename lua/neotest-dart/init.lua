@@ -95,7 +95,7 @@ local function construct_test_argument(position, strategy)
 end
 
 ---@return table?
-local function get_strategy_config(strategy, script_args)
+local function get_strategy_config(strategy, path, script_args)
   local config = {
     dap = function()
       local status_ok, dap = pcall(require, 'dap')
@@ -114,6 +114,7 @@ local function get_strategy_config(strategy, script_args)
         type = 'dart_test',
         name = 'Neotest Debugger',
         request = 'launch',
+        program = path,
         args = script_args,
       }
     end,
@@ -147,7 +148,7 @@ function adapter.build_spec(args)
     'json',
   }
 
-  local strategy_config = get_strategy_config(args.strategy, test_argument)
+  local strategy_config = get_strategy_config(args.strategy, position.path, test_argument)
 
   local full_command = table.concat(vim.tbl_flatten(command_parts), ' ')
   return {
