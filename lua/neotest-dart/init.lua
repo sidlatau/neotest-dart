@@ -201,7 +201,12 @@ local function marshal_test_results(lines)
           test_data.result = json.result
         end
         if json.message then
-          test_data.message = json.message
+          if test_data.message == nil then
+            test_data.message = json.message
+          else
+            -- Concatenate all messages for the test
+            test_data.message = test_data.message .. '\n' .. json.message
+          end
         end
         if json.error then
           test_data.error = json.error
