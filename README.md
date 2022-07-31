@@ -2,10 +2,6 @@
 
 This plugin provides a [Dart](https://dart.dev/) and [Flutter](https://flutter.dev/) tests adapter for the [Neotest](https://github.com/rcarriga/neotest) framework.
 
-## Status:
-
-**Work in progress 🚧**.
-
 ## Installation
 
 Using packer:
@@ -38,5 +34,5 @@ For usage of `Neotest` plugin please refer to [Neotest usage section](https://gi
 
 ## Contributing
 
-This project is maintained by the nvim Dart/Flutter community. Please raise a PR if you are interested in adding new functionality or fixing any bugs
+This project is maintained by the Neovim Dart/Flutter community. Please raise a PR if you are interested in adding new functionality or fixing any bugs
 If you are unsure of how this plugin works please read the [Writing adapters](https://github.com/nvim-neotest/neotest#writing-adapters) section of the Neotest README. When submitting a bug, please include an example spec that can be tested.
