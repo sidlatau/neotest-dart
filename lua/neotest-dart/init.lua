@@ -224,6 +224,7 @@ end
 local dart_to_neotest_status_map = {
   success = 'passed',
   error = 'failed',
+  failure = 'failed',
 }
 
 local function highlight_as_error(message)
