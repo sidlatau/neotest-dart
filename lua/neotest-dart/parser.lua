@@ -26,6 +26,9 @@ local function construct_neotest_status(test_result)
   if test_result.skipped then
     return 'skipped'
   end
+  if test_result.status == nil then
+    return 'running'
+  end
   return test_result.status
 end
 
