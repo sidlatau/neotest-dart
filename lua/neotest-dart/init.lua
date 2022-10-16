@@ -18,7 +18,7 @@ function adapter.is_test_file(file_path)
   end
   local elems = vim.split(file_path, Path.path.sep)
   local file_name = elems[#elems]
-  local is_test = vim.endswith(file_name, '_test.dart')
+  local is_test = vim.endswith(file_name, 'test.dart')
   return is_test
 end
 
