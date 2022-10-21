@@ -21,6 +21,7 @@ use({
              command = 'flutter', -- Command being used to run tests. Defaults to `flutter`
                                   -- Change it to `fvm flutter` if using FVM
                                   -- change it to `dart` for Dart only tests
+             use_lsp = false      -- When set Flutter outline information is used when constructing test name.
           },
       }
     })
@@ -31,6 +32,14 @@ use({
 ## Usage
 
 For usage of `Neotest` plugin please refer to [Neotest usage section](https://github.com/nvim-neotest/neotest#usage)
+
+When `use_lsp` is set, plugin attaches to `dartls` server and listens for outline changes. LSP outline handles more complex test names, that requires some transformation. Example of the test, that does not work with TreeSitter only and works when `use_lsp` setting enabled:
+
+```dart
+  testWidgets('a' 'b', (tester) async {
+    expect(true, false);
+  });
+```
 
 ## Contributing
 
