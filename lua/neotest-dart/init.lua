@@ -176,23 +176,22 @@ setmetatable(adapter, {
     if config.command then
       command = config.command
     end
+    if config.use_lsp then
+      vim.api.nvim_create_autocmd('LspAttach', {
+        callback = function(args)
+          local client = vim.lsp.get_client_by_id(args.data.client_id)
+          if client.name == 'dartls' then
+            local originalOutline = client.handlers['dart/textDocument/publishOutline']
+            client.handlers['dart/textDocument/publishOutline'] = function(_, data)
+              originalOutline(_, data)
+              on_outline_changed(data)
+            end
+          end
+        end,
+      })
+    end
     return adapter
   end,
 })
-
-function adapter.setup()
-  vim.api.nvim_create_autocmd('LspAttach', {
-    callback = function(args)
-      local client = vim.lsp.get_client_by_id(args.data.client_id)
-      if client.name == 'dartls' then
-        local originalOutline = client.handlers['dart/textDocument/publishOutline']
-        client.handlers['dart/textDocument/publishOutline'] = function(_, data)
-          originalOutline(_, data)
-          on_outline_changed(data)
-        end
-      end
-    end,
-  })
-end
 
 return adapter
