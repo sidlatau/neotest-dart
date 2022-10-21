@@ -33,7 +33,7 @@ use({
 
 For usage of `Neotest` plugin please refer to [Neotest usage section](https://github.com/nvim-neotest/neotest#usage)
 
-When `use_lsp` is set, plugin attaches to `dartls` server and listens for outline changes. LSP outline handles more complex test names, that requires some transformation. Example of the test, that does not work with TreeSitter only and works when `use_lsp` setting enabled:
+When `use_lsp` is set, plugin attaches to `dartls` server and listens for outline changes. LSP outline handles more complex test names. Example of the test, that does not work with TreeSitter, but works when `use_lsp` setting is enabled:
 
 ```dart
   testWidgets('a' 'b', (tester) async {
