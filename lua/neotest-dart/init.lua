@@ -54,6 +54,10 @@ function adapter.discover_positions(path)
       local expected_range = table.concat(position.range, '_')
       local outline_test_name = outline[expected_range]
       if outline_test_name then
+        local parts = vim.split(position.id, '::')
+        -- last component is test name
+        parts[3] = outline_test_name
+        position.id = table.concat(parts, '::')
         position.name = outline_test_name
       else
         position.name = utils.remove_surrounding_quates(position.name, true)
