@@ -10,7 +10,7 @@ local function parse_outline(result, node)
   local element = node.element or {}
 
   if element.kind == 'UNIT_TEST_TEST' then
-    local _, _, test_name = element.name:find('testWidgets%("(.+)"%)')
+    local _, _, test_name = element.name:find('[testWidgets,test]%("(.+)"%)')
     if test_name then
       local start_line = range.start.line
       local start_col = range.start.character
