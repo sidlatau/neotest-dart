@@ -3,6 +3,7 @@ local Path = require('plenary.path')
 local lib = require('neotest.lib')
 local utils = require('neotest-dart.utils')
 local parser = require('neotest-dart.parser')
+local outline_parser = require('neotest-dart.lsp_outline_parser')
 
 ---@type neotest.Adapter
 local adapter = { name = 'neotest-dart' }
@@ -12,6 +13,8 @@ adapter.root = lib.files.match_root_pattern('dart')
 --- Command to use for running tests. Value is set from config
 local command = 'flutter'
 
+local outline = {}
+
 function adapter.is_test_file(file_path)
   if not vim.endswith(file_path, '.dart') then
     return false
@@ -20,6 +23,11 @@ function adapter.is_test_file(file_path)
   local file_name = elems[#elems]
   local is_test = vim.endswith(file_name, 'test.dart')
   return is_test
+end
+
+--- Dart LSP has all the correct test names - they should take precedence if available
+local function on_outline_changed(data)
+  outline = outline_parser.parse(data)
 end
 
 ---@async
@@ -43,7 +51,13 @@ function adapter.discover_positions(path)
   })
   for _, position in tree:iter() do
     if position.type == 'test' or position.type == 'namespace' then
-      position.name = utils.remove_surrounding_quates(position.name, true)
+      local expected_range = table.concat(position.range, '_')
+      local outline_test_name = outline[expected_range]
+      if outline_test_name then
+        position.name = outline_test_name
+      else
+        position.name = utils.remove_surrounding_quates(position.name, true)
+      end
     end
   end
   return tree
@@ -165,5 +179,20 @@ setmetatable(adapter, {
     return adapter
   end,
 })
+
+function adapter.setup()
+  vim.api.nvim_create_autocmd('LspAttach', {
+    callback = function(args)
+      local client = vim.lsp.get_client_by_id(args.data.client_id)
+      if client.name == 'dartls' then
+        local originalOutline = client.handlers['dart/textDocument/publishOutline']
+        client.handlers['dart/textDocument/publishOutline'] = function(_, data)
+          originalOutline(_, data)
+          on_outline_changed(data)
+        end
+      end
+    end,
+  })
+end
 
 return adapter
