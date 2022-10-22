@@ -85,9 +85,11 @@ describe('lsp outline parser', function()
           },
         },
       },
+      uri = 'file:///Users/ts/Documents/github/personal/pikis/test/test.dart',
     }
     local output = parser.parse(data)
-    assert.equals(output['4_4_6_7'], "a ' ' b")
+    local uri = '/Users/ts/Documents/github/personal/pikis/test/test.dart'
+    assert.equals("a ' ' b", output[uri .. '::' .. '4_4_6_7'])
   end)
 
   it('parses widget test names', function()
@@ -174,8 +176,10 @@ describe('lsp outline parser', function()
           },
         },
       },
+      uri = 'file:///Users/ts/Documents/github/personal/pikis/test/test.dart',
     }
     local output = parser.parse(data)
-    assert.equals(output['4_4_6_7'], "a ' ' b")
+    local uri = '/Users/ts/Documents/github/personal/pikis/test/test.dart'
+    assert.equals("a ' ' b", output[uri .. '::' .. '4_4_6_7'])
   end)
 end)

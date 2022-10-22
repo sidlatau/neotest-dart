@@ -27,7 +27,15 @@ end
 
 --- Dart LSP has all the correct test names - they should take precedence if available
 local function on_outline_changed(data)
-  outline = outline_parser.parse(data)
+  local new_outline = outline_parser.parse(data)
+  for key, value in pairs(new_outline) do
+    outline[key] = value
+  end
+end
+
+local function construct_outline_key(position)
+  local range = table.concat(position.range, '_')
+  return position.path .. '::' .. range
 end
 
 ---@async
@@ -51,8 +59,8 @@ function adapter.discover_positions(path)
   })
   for _, position in tree:iter() do
     if position.type == 'test' or position.type == 'namespace' then
-      local expected_range = table.concat(position.range, '_')
-      local outline_test_name = outline[expected_range]
+      local otline_key = construct_outline_key(position)
+      local outline_test_name = outline[otline_key]
       if outline_test_name then
         local parts = vim.split(position.id, '::')
         -- last component is test name
