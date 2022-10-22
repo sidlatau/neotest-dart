@@ -151,6 +151,28 @@ local function prepare_neotest_output(test_result, unparsable_lines)
   return fname
 end
 
+local function construct_diagnostic_errors(test_result)
+  local line
+  if test_result.status == 'failed' then
+    if test_result.message then
+      local _, _, str = test_result.message:find('test.dart line (%d+)')
+      if str then
+        line = tonumber(str) - 1
+      end
+      return { { message = test_result.message, line = line } }
+    end
+    if test_result.error then
+      if test_result.stack_trace then
+        local _, _, str = test_result.stack_trace:find('test.dart (%d+):')
+        if str then
+          line = tonumber(str) - 1
+        end
+      end
+      return { { message = test_result.error, line = line } }
+    end
+  end
+end
+
 M.parse_lines = function(tree, lines, outline)
   local tests, unparsable_lines = marshal_test_results(lines)
   local results = {}
@@ -164,6 +186,7 @@ M.parse_lines = function(tree, lines, outline)
           status = construct_neotest_status(test_result),
           short = highlight_as_error(test_result.message),
           output = prepare_neotest_output(test_result, unparsable_lines),
+          errors = construct_diagnostic_errors(test_result),
         }
         results[value.id] = neotest_result
       end
