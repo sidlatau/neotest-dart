@@ -56,7 +56,7 @@ function adapter.discover_positions(path)
       if outline_test_name then
         local parts = vim.split(position.id, '::')
         -- last component is test name
-        parts[3] = outline_test_name
+        parts[#parts] = outline_test_name
         position.id = table.concat(parts, '::')
         position.name = outline_test_name
       else
