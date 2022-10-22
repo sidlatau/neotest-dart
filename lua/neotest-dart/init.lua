@@ -33,11 +33,6 @@ local function on_outline_changed(data)
   end
 end
 
-local function construct_outline_key(position)
-  local range = table.concat(position.range, '_')
-  return position.path .. '::' .. range
-end
-
 ---@async
 ---@return neotest.Tree| nil
 function adapter.discover_positions(path)
@@ -59,8 +54,7 @@ function adapter.discover_positions(path)
   })
   for _, position in tree:iter() do
     if position.type == 'test' or position.type == 'namespace' then
-      local otline_key = construct_outline_key(position)
-      local outline_test_name = outline[otline_key]
+      local outline_test_name = utils.get_test_name_from_outline(position, outline)
       if outline_test_name then
         local parts = vim.split(position.id, '::')
         -- last component is test name
@@ -78,7 +72,7 @@ end
 local function construct_test_argument(position, strategy)
   local test_argument = {}
   if position.type == 'test' then
-    local test_name = utils.construct_test_name_from_position(position.id)
+    local test_name = utils.construct_test_name(position, outline)
     table.insert(test_argument, '--plain-name')
     if strategy == 'dap' then
       table.insert(test_argument, test_name)
@@ -161,7 +155,7 @@ function adapter.build_spec(args)
         for _, line in ipairs(lines) do
           table.insert(partial_output, line)
         end
-        local tests = parser.parse_lines(tree, partial_output)
+        local tests = parser.parse_lines(tree, partial_output, outline)
         return tests
       end
     end,
@@ -179,7 +173,7 @@ function adapter.results(_, result, tree)
     return {}
   end
   local lines = vim.split(data, '\n')
-  local tests = parser.parse_lines(tree, lines)
+  local tests = parser.parse_lines(tree, lines, outline)
   return tests
 end
 

@@ -151,13 +151,13 @@ local function prepare_neotest_output(test_result, unparsable_lines)
   return fname
 end
 
-M.parse_lines = function(tree, lines)
+M.parse_lines = function(tree, lines, outline)
   local tests, unparsable_lines = marshal_test_results(lines)
   local results = {}
   for _, node in tree:iter_nodes() do
     local value = node:data()
     if value.type == 'test' then
-      local test_name = utils.construct_test_name_from_position(value.id)
+      local test_name = utils.construct_test_name(value, outline)
       local test_result = tests[test_name]
       if test_result then
         local neotest_result = {
