@@ -152,14 +152,18 @@ local function prepare_neotest_output(test_result, unparsable_lines)
 end
 
 local function construct_diagnostic_errors(test_result)
+  vim.pretty_print(test_result)
   local line
+  local message
   if test_result.status == 'failed' then
     if test_result.message then
       local _, _, str = test_result.message:find('test.dart line (%d+)')
       if str then
         line = tonumber(str) - 1
       end
-      return { { message = test_result.message, line = line } }
+      if test_result.message ~= 'Error' then
+        message = test_result.message
+      end
     end
     if test_result.error then
       if test_result.stack_trace then
@@ -168,7 +172,18 @@ local function construct_diagnostic_errors(test_result)
           line = tonumber(str) - 1
         end
       end
-      return { { message = test_result.error, line = line } }
+      if not message then
+        message = test_result.error
+      end
+    end
+    if message then
+      message = message
+        :gsub(
+          '══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════',
+          ''
+        )
+        :gsub('The following TestFailure was thrown running a test:', '')
+      return { { message = message, line = line } }
     end
   end
 end
