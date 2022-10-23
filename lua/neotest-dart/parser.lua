@@ -152,7 +152,6 @@ local function prepare_neotest_output(test_result, unparsable_lines)
 end
 
 local function construct_diagnostic_errors(test_result)
-  vim.pretty_print(test_result)
   local line
   local message
   if test_result.status == 'failed' then
