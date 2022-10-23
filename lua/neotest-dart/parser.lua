@@ -160,9 +160,7 @@ local function construct_diagnostic_errors(test_result)
       if str then
         line = tonumber(str) - 1
       end
-      if test_result.message ~= 'Error' then
-        message = test_result.message
-      end
+      message = test_result.message
     end
     if test_result.error then
       if test_result.stack_trace then
