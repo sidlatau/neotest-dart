@@ -3,6 +3,7 @@ local Path = require('plenary.path')
 local lib = require('neotest.lib')
 local utils = require('neotest-dart.utils')
 local parser = require('neotest-dart.parser')
+local outline_parser = require('neotest-dart.lsp_outline_parser')
 
 ---@type neotest.Adapter
 local adapter = { name = 'neotest-dart' }
@@ -12,6 +13,8 @@ adapter.root = lib.files.match_root_pattern('dart')
 --- Command to use for running tests. Value is set from config
 local command = 'flutter'
 
+local outline = {}
+
 function adapter.is_test_file(file_path)
   if not vim.endswith(file_path, '.dart') then
     return false
@@ -20,6 +23,14 @@ function adapter.is_test_file(file_path)
   local file_name = elems[#elems]
   local is_test = vim.endswith(file_name, 'test.dart')
   return is_test
+end
+
+--- Dart LSP has all the correct test names - they should take precedence if available
+local function on_outline_changed(data)
+  local new_outline = outline_parser.parse(data)
+  for key, value in pairs(new_outline) do
+    outline[key] = value
+  end
 end
 
 ---@async
@@ -43,7 +54,16 @@ function adapter.discover_positions(path)
   })
   for _, position in tree:iter() do
     if position.type == 'test' or position.type == 'namespace' then
-      position.name = utils.remove_surrounding_quates(position.name, true)
+      local outline_test_name = utils.get_test_name_from_outline(position, outline)
+      if outline_test_name then
+        local parts = vim.split(position.id, '::')
+        -- last component is test name
+        parts[#parts] = outline_test_name
+        position.id = table.concat(parts, '::')
+        position.name = outline_test_name
+      else
+        position.name = utils.remove_surrounding_quates(position.name, true)
+      end
     end
   end
   return tree
@@ -52,7 +72,7 @@ end
 local function construct_test_argument(position, strategy)
   local test_argument = {}
   if position.type == 'test' then
-    local test_name = utils.construct_test_name_from_position(position.id)
+    local test_name = utils.construct_test_name(position, outline)
     table.insert(test_argument, '--plain-name')
     if strategy == 'dap' then
       table.insert(test_argument, test_name)
@@ -135,7 +155,7 @@ function adapter.build_spec(args)
         for _, line in ipairs(lines) do
           table.insert(partial_output, line)
         end
-        local tests = parser.parse_lines(tree, partial_output)
+        local tests = parser.parse_lines(tree, partial_output, outline)
         return tests
       end
     end,
@@ -153,7 +173,7 @@ function adapter.results(_, result, tree)
     return {}
   end
   local lines = vim.split(data, '\n')
-  local tests = parser.parse_lines(tree, lines)
+  local tests = parser.parse_lines(tree, lines, outline)
   return tests
 end
 
@@ -161,6 +181,20 @@ setmetatable(adapter, {
   __call = function(_, config)
     if config.command then
       command = config.command
+    end
+    if config.use_lsp or true then
+      vim.api.nvim_create_autocmd('LspAttach', {
+        callback = function(args)
+          local client = vim.lsp.get_client_by_id(args.data.client_id)
+          if client.name == 'dartls' then
+            local originalOutline = client.handlers['dart/textDocument/publishOutline']
+            client.handlers['dart/textDocument/publishOutline'] = function(_, data)
+              originalOutline(_, data)
+              on_outline_changed(data)
+            end
+          end
+        end,
+      })
     end
     return adapter
   end,

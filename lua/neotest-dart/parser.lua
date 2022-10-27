@@ -151,19 +151,54 @@ local function prepare_neotest_output(test_result, unparsable_lines)
   return fname
 end
 
-M.parse_lines = function(tree, lines)
+local function construct_diagnostic_errors(test_result)
+  local line
+  local message
+  if test_result.status == 'failed' then
+    if test_result.message then
+      local _, _, str = test_result.message:find('test.dart line (%d+)')
+      if str then
+        line = tonumber(str) - 1
+      end
+      message = test_result.message
+    end
+    if test_result.error then
+      if test_result.stack_trace then
+        local _, _, str = test_result.stack_trace:find('test.dart (%d+):')
+        if str then
+          line = tonumber(str) - 1
+        end
+      end
+      if not message then
+        message = test_result.error
+      end
+    end
+    if message then
+      message = message
+        :gsub(
+          '══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════',
+          ''
+        )
+        :gsub('The following TestFailure was thrown running a test:', '')
+      return { { message = message, line = line } }
+    end
+  end
+end
+
+M.parse_lines = function(tree, lines, outline)
   local tests, unparsable_lines = marshal_test_results(lines)
   local results = {}
   for _, node in tree:iter_nodes() do
     local value = node:data()
     if value.type == 'test' then
-      local test_name = utils.construct_test_name_from_position(value.id)
+      local test_name = utils.construct_test_name(value, outline)
       local test_result = tests[test_name]
       if test_result then
         local neotest_result = {
           status = construct_neotest_status(test_result),
           short = highlight_as_error(test_result.message),
           output = prepare_neotest_output(test_result, unparsable_lines),
+          errors = construct_diagnostic_errors(test_result),
         }
         results[value.id] = neotest_result
       end

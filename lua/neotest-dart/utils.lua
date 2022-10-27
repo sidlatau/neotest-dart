@@ -17,10 +17,20 @@ M.remove_surrounding_quates = function(name, prepare_for_summary)
   return trimmed
 end
 
---- position id contains information enought to construct test name
+M.get_test_name_from_outline = function(position, outline)
+  local range = table.concat(position.range, '_')
+  local outline_key = position.path .. '::' .. range
+  return outline[outline_key]
+end
+
+--- position and outline contains information enought to construct test name
 --- @returns string
-M.construct_test_name_from_position = function(position_id)
-  local parts = vim.split(position_id, '::')
+M.construct_test_name = function(position, outline)
+  local outline_test_name = M.get_test_name_from_outline(position, outline)
+  local parts = vim.split(position.id, '::')
+  if outline_test_name then
+    parts[#parts] = outline_test_name
+  end
   local name_components = {}
   for index, value in ipairs(parts) do
     if index > 1 then
