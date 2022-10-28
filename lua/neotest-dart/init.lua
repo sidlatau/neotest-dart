@@ -28,8 +28,10 @@ end
 --- Dart LSP has all the correct test names - they should take precedence if available
 local function on_outline_changed(data)
   local new_outline = outline_parser.parse(data)
-  for key, value in pairs(new_outline) do
-    outline[key] = value
+  if new_outline then
+    for key, value in pairs(new_outline) do
+      outline[key] = value
+    end
   end
 end
 
@@ -185,8 +187,9 @@ setmetatable(adapter, {
     if config.use_lsp or true then
       vim.api.nvim_create_autocmd('LspAttach', {
         callback = function(args)
+          local is_test_file = adapter.is_test_file(args.file)
           local client = vim.lsp.get_client_by_id(args.data.client_id)
-          if client.name == 'dartls' then
+          if client.name == 'dartls' and is_test_file then
             local originalOutline = client.handlers['dart/textDocument/publishOutline']
             client.handlers['dart/textDocument/publishOutline'] = function(_, data)
               originalOutline(_, data)
