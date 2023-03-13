@@ -94,9 +94,15 @@ local function get_strategy_config(strategy, path, script_args)
       if not status_ok then
         return
       end
+      local dap_command = 'flutter'
+      if command:find('fvm ') ~= nil then
+        local flutter_bin_symlink =
+          utils.join_path(vim.loop.cwd(), '.fvm', 'flutter_sdk', 'bin', 'flutter')
+        dap_command = vim.loop.fs_realpath(flutter_bin_symlink) or 'flutter'
+      end
       dap.adapters.dart_test = {
         type = 'executable',
-        command = 'flutter',
+        command = dap_command,
         args = { 'debug-adapter', '--test' },
         options = { -- Dartls is slow to start so avoid warnings from nvim-dap
           initialize_timeout_sec = 30,

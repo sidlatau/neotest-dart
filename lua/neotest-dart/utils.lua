@@ -42,4 +42,15 @@ M.construct_test_name = function(position, outline)
   return name
 end
 
+---Join path segments using the os separator
+---@vararg string
+---@return string
+function M.join_path(...)
+  local uname = vim.loop.os_uname()
+  local is_windows = uname.version:match('Windows')
+  local path_sep = is_windows and '\\' or '/'
+  local result = table.concat(vim.tbl_flatten({ ... }), path_sep):gsub(path_sep .. '+', path_sep)
+  return result
+end
+
 return M
