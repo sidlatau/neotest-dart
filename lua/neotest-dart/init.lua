@@ -40,15 +40,15 @@ end
 function adapter.discover_positions(path)
   local query = [[
   ;; group blocks
-  (expression_statement 
+  (expression_statement
     (identifier) @group (#eq? @group "group")
     (selector (argument_part (arguments (argument (string_literal) @namespace.name )))))
     @namespace.definition
 
   ;; tests blocks
-  (expression_statement 
+  (expression_statement
     (identifier) @testFunc (#any-of? @testFunc "test" "testWidgets")
-    (selector (argument_part (arguments (argument (string_literal) @test.name))))) 
+    (selector (argument_part (arguments (argument (string_literal) @test.name)))))
     @test.definition
   ]]
   local tree = lib.treesitter.parse_positions(path, query, {
@@ -198,7 +198,9 @@ setmetatable(adapter, {
           if client.name == 'dartls' and is_test_file then
             local originalOutline = client.handlers['dart/textDocument/publishOutline']
             client.handlers['dart/textDocument/publishOutline'] = function(_, data)
-              originalOutline(_, data)
+              if originalOutline then
+                originalOutline(_, data)
+              end
               on_outline_changed(data)
             end
           end
