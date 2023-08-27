@@ -12,6 +12,7 @@ adapter.root = lib.files.match_root_pattern('pubspec.yaml')
 
 --- Command to use for running tests. Value is set from config
 local command = 'flutter'
+local custom_test_method_names = {}
 
 local outline = {}
 
@@ -38,6 +39,11 @@ end
 ---@async
 ---@return neotest.Tree| nil
 function adapter.discover_positions(path)
+  local names = vim.tbl_map(function(name)
+    return '"' .. name .. '"'
+  end, custom_test_method_names)
+  local names_string = table.concat(names, ' ')
+
   local query = [[
   ;; group blocks
   (expression_statement
@@ -47,7 +53,7 @@ function adapter.discover_positions(path)
 
   ;; tests blocks
   (expression_statement
-    (identifier) @testFunc (#any-of? @testFunc "test" "testWidgets")
+    (identifier) @testFunc (#any-of? @testFunc "test" "testWidgets" ]] .. names_string .. [[)
     (selector (argument_part (arguments (argument (string_literal) @test.name)))))
     @test.definition
   ]]
@@ -189,6 +195,9 @@ setmetatable(adapter, {
   __call = function(_, config)
     if config.command then
       command = config.command
+    end
+    if config.custom_test_method_names then
+      custom_test_method_names = config.custom_test_method_names
     end
     if config.use_lsp or true then
       vim.api.nvim_create_autocmd('LspAttach', {
