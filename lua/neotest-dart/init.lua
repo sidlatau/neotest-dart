@@ -48,7 +48,7 @@ function adapter.discover_positions(path)
   ;; group blocks
   (expression_statement
     (identifier) @group (#eq? @group "group")
-    (selector (argument_part (arguments (argument (string_literal) @namespace.name )))))
+    (selector (argument_part (arguments . (argument (_) @namespace.name )))))
     @namespace.definition
 
   ;; tests blocks
