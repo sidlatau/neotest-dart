@@ -139,19 +139,30 @@ function adapter.build_spec(args)
     return {}
   end
   local position = tree:data()
-  if position.type == 'dir' then
-    return {}
-  end
-  local test_argument = construct_test_argument(position, args.strategy)
 
-  local command_parts = {
-    command,
-    'test',
-    position.path,
-    test_argument,
-    '--reporter',
-    'json',
-  }
+  local command_parts = {}
+
+  if position.type == 'dir' then
+    command_parts = {
+      command,
+      'test',
+      '--reporter',
+      'json',
+    }
+  end
+
+  if position.type == 'test' or position.type == 'file' then
+    local test_argument = construct_test_argument(position, args.strategy)
+
+    command_parts = {
+      command,
+      'test',
+      position.path,
+      test_argument,
+      '--reporter',
+      'json',
+    }
+  end
 
   local strategy_config = get_strategy_config(args.strategy, position.path, test_argument)
 
