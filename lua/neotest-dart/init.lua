@@ -138,36 +138,46 @@ function adapter.build_spec(args)
   if not tree then
     return {}
   end
+
   local position = tree:data()
 
   local command_parts = {}
 
-  if position.type == 'dir' or position.type == 'namespace' then
+  if position.type == 'dir' then
+      if args.strategy == 'integrated' then
+          command_parts = {
+              command,
+              'test',
+              string.format("%s/%s", position.path, 'test'),
+              '--reporter',
+              'json',
+          }
+      else
+          command_parts = {
+              command,
+              'test',
+              position.path,
+              '--reporter',
+              'json',
+          }
+      end
+  end
+
+  if position.type == 'test' or position.type == 'file' or position.type == 'namespace' then
       command_parts = {
           command,
           'test',
-          -- position.path,
+          position.path,
+          test_argument,
           '--reporter',
           'json',
       }
   end
 
-  if position.type == 'test' or position.type == 'file' then
-    local test_argument = construct_test_argument(position, args.strategy)
-
-    command_parts = {
-      command,
-      'test',
-      position.path,
-      test_argument,
-      '--reporter',
-      'json',
-    }
-  end
-
+  local test_argument = construct_test_argument(position, args.strategy)
   local strategy_config = get_strategy_config(args.strategy, position.path, test_argument)
-
   local full_command = table.concat(vim.tbl_flatten(command_parts), ' ')
+
   return {
     command = full_command,
     context = {
