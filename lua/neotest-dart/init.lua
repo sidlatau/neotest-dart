@@ -146,7 +146,7 @@ function adapter.build_spec(args)
       command_parts = {
           command,
           'test',
-          position.path,
+          -- position.path,
           '--reporter',
           'json',
       }
