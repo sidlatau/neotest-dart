@@ -144,11 +144,11 @@ function adapter.build_spec(args)
   local command_parts = {}
 
   if position.type == 'dir' then
-      if args.strategy == 'integrated' then
+      if string.sub(position.path, - #'/test') == '/test' then
           command_parts = {
               command,
               'test',
-              string.format("%s/%s", position.path, 'test'),
+              position.path,
               '--reporter',
               'json',
           }
@@ -156,7 +156,7 @@ function adapter.build_spec(args)
           command_parts = {
               command,
               'test',
-              position.path,
+              string.format("%s/%s", position.path, 'test'),
               '--reporter',
               'json',
           }
