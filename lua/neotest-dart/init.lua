@@ -142,13 +142,14 @@ function adapter.build_spec(args)
 
   local command_parts = {}
 
-  if position.type == 'dir' then
-    command_parts = {
-      command,
-      'test',
-      '--reporter',
-      'json',
-    }
+  if position.type == 'dir' or position.type == 'namespace' then
+      command_parts = {
+          command,
+          'test',
+          position.path,
+          '--reporter',
+          'json',
+      }
   end
 
   if position.type == 'test' or position.type == 'file' then
