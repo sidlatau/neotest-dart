@@ -163,6 +163,8 @@ function adapter.build_spec(args)
       end
   end
 
+  local test_argument = construct_test_argument(position, args.strategy)
+
   if position.type == 'test' or position.type == 'file' or position.type == 'namespace' then
       command_parts = {
           command,
@@ -174,7 +176,6 @@ function adapter.build_spec(args)
       }
   end
 
-  local test_argument = construct_test_argument(position, args.strategy)
   local strategy_config = get_strategy_config(args.strategy, position.path, test_argument)
   local full_command = table.concat(vim.tbl_flatten(command_parts), ' ')
 
