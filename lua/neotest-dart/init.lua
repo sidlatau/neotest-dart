@@ -138,35 +138,47 @@ function adapter.build_spec(args)
   if not tree then
     return {}
   end
+
   local position = tree:data()
 
   local command_parts = {}
 
   if position.type == 'dir' then
-    command_parts = {
-      command,
-      'test',
-      '--reporter',
-      'json',
-    }
+      if string.sub(position.path, - #'/test') == '/test' then
+          command_parts = {
+              command,
+              'test',
+              position.path,
+              '--reporter',
+              'json',
+          }
+      else
+          command_parts = {
+              command,
+              'test',
+              string.format("%s/%s", position.path, 'test'),
+              '--reporter',
+              'json',
+          }
+      end
   end
 
-  if position.type == 'test' or position.type == 'file' then
-    local test_argument = construct_test_argument(position, args.strategy)
+  local test_argument = construct_test_argument(position, args.strategy)
 
-    command_parts = {
-      command,
-      'test',
-      position.path,
-      test_argument,
-      '--reporter',
-      'json',
-    }
+  if position.type == 'test' or position.type == 'file' or position.type == 'namespace' then
+      command_parts = {
+          command,
+          'test',
+          position.path,
+          test_argument,
+          '--reporter',
+          'json',
+      }
   end
 
   local strategy_config = get_strategy_config(args.strategy, position.path, test_argument)
-
   local full_command = table.concat(vim.tbl_flatten(command_parts), ' ')
+
   return {
     command = full_command,
     context = {
