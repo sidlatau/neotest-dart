@@ -120,6 +120,7 @@ local function get_strategy_config(strategy, path, script_args)
         request = 'launch',
         program = path,
         args = script_args,
+        evaluateToStringInDebugViews = true,
       }
     end,
   }
@@ -144,36 +145,36 @@ function adapter.build_spec(args)
   local command_parts = {}
 
   if position.type == 'dir' then
-      if string.sub(position.path, - #'/test') == '/test' then
-          command_parts = {
-              command,
-              'test',
-              position.path,
-              '--reporter',
-              'json',
-          }
-      else
-          command_parts = {
-              command,
-              'test',
-              string.format("%s/%s", position.path, 'test'),
-              '--reporter',
-              'json',
-          }
-      end
+    if string.sub(position.path, -#'/test') == '/test' then
+      command_parts = {
+        command,
+        'test',
+        position.path,
+        '--reporter',
+        'json',
+      }
+    else
+      command_parts = {
+        command,
+        'test',
+        string.format('%s/%s', position.path, 'test'),
+        '--reporter',
+        'json',
+      }
+    end
   end
 
   local test_argument = construct_test_argument(position, args.strategy)
 
   if position.type == 'test' or position.type == 'file' or position.type == 'namespace' then
-      command_parts = {
-          command,
-          'test',
-          position.path,
-          test_argument,
-          '--reporter',
-          'json',
-      }
+    command_parts = {
+      command,
+      'test',
+      position.path,
+      test_argument,
+      '--reporter',
+      'json',
+    }
   end
 
   local strategy_config = get_strategy_config(args.strategy, position.path, test_argument)
