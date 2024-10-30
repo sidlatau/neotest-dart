@@ -177,6 +177,12 @@ function adapter.build_spec(args)
     }
   end
 
+  local extra_args = args.extra_args or {}
+  if type(extra_args) == 'string' then
+    extra_args = { extra_args }
+  end
+  vim.list_extend(command_parts, extra_args)
+
   local strategy_config = get_strategy_config(args.strategy, position.path, test_argument)
   local full_command = table.concat(vim.tbl_flatten(command_parts), ' ')
 
