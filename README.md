@@ -30,6 +30,41 @@ use({
 })
 ```
 
+Using lazy.nvim:
+
+```lua
+-- in neotest.lua
+return {
+  "nvim-neotest/neotest",
+  dependencies = {
+    "nvim-neotest/nvim-nio",
+    "nvim-lua/plenary.nvim",
+    "antoinemadec/FixCursorHold.nvim",
+    "nvim-treesitter/nvim-treesitter",
+    "sidlatau/neotest-dart"
+  },
+  config = function()
+    require('neotest').setup({
+      adapters = {
+        require('neotest-dart') {
+          command = 'flutter',
+          use_lsp = true
+        }
+      }
+    })
+  end
+}
+
+-- in neotest-dart.lua
+return {
+  "sidlatau/neotest-dart",
+  dependencies = {
+    "nvim-neotest/neotest",
+  },
+  lazy = false
+}
+```
+
 ## Usage
 
 For usage of `Neotest` plugin please refer to [Neotest usage section](https://github.com/nvim-neotest/neotest#usage)
