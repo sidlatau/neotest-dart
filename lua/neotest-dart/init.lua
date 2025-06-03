@@ -89,6 +89,7 @@ local function construct_test_argument(position, strategy)
       table.insert(test_argument, '"' .. test_name .. '"')
     end
   end
+  table.insert(test_argument, '--no-pub')
   return test_argument
 end
 
