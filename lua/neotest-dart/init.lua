@@ -185,7 +185,7 @@ function adapter.build_spec(args)
   vim.list_extend(command_parts, extra_args)
 
   local strategy_config = get_strategy_config(args.strategy, position.path, test_argument)
-  local full_command = table.concat(vim.tbl_flatten(command_parts), ' ')
+  local full_command = table.concat(vim.iter(command_parts):flatten():totable(), ' ')
 
   return {
     command = full_command,
