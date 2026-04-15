@@ -49,7 +49,8 @@ function M.join_path(...)
   local uname = vim.loop.os_uname()
   local is_windows = uname.version:match('Windows')
   local path_sep = is_windows and '\\' or '/'
-  local result = table.concat(vim.tbl_flatten({ ... }), path_sep):gsub(path_sep .. '+', path_sep)
+  local result =
+    table.concat(vim.iter({ ... }):flatten():totable(), path_sep):gsub(path_sep .. '+', path_sep)
   return result
 end
 
