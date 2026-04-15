@@ -13,6 +13,7 @@ adapter.root = lib.files.match_root_pattern('pubspec.yaml')
 --- Command to use for running tests. Value is set from config
 local command = 'flutter'
 local custom_test_method_names = {}
+local additional_args = {}
 
 local outline = {}
 
@@ -181,6 +182,10 @@ function adapter.build_spec(args)
   local extra_args = args.extra_args or {}
   if type(extra_args) == 'string' then
     extra_args = { extra_args }
+  else
+    for _, arg in ipairs(additional_args) do
+      table.insert(extra_args, arg)
+    end
   end
   vim.list_extend(command_parts, extra_args)
 
@@ -229,6 +234,9 @@ setmetatable(adapter, {
     end
     if config.custom_test_method_names then
       custom_test_method_names = config.custom_test_method_names
+    end
+    if config.additional_args then
+      additional_args = config.additional_args
     end
     if config.use_lsp or true then
       vim.api.nvim_create_autocmd('LspAttach', {
