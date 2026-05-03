@@ -14,8 +14,29 @@ adapter.root = lib.files.match_root_pattern('pubspec.yaml')
 local command = 'flutter'
 local custom_test_method_names = {}
 local additional_args = {}
+local use_lsp = true
 
 local outline = {}
+local lsp_autocmd_registered = false
+local wrapped_outline_clients = {}
+
+local function flatten(list)
+  local result = {}
+
+  local function visit(value)
+    if type(value) == 'table' then
+      for _, item in ipairs(value) do
+        visit(item)
+      end
+      return
+    end
+
+    table.insert(result, value)
+  end
+
+  visit(list)
+  return result
+end
 
 function adapter.is_test_file(file_path)
   if not vim.endswith(file_path, '.dart') then
@@ -205,11 +226,45 @@ function adapter.build_spec(args)
         for _, line in ipairs(lines) do
           table.insert(partial_output, line)
         end
-        local tests = parser.parse_lines(tree, partial_output, outline)
+        local tests = parser.parse_lines(tree, partial_output, outline, { write_output = false })
         return tests
       end
     end,
   }
+end
+
+local function register_lsp_outline_handler()
+  if lsp_autocmd_registered then
+    return
+  end
+
+  lsp_autocmd_registered = true
+  vim.api.nvim_create_autocmd('LspAttach', {
+    callback = function(args)
+      if not use_lsp then
+        return
+      end
+
+      local client_id = args.data and args.data.client_id
+      local client = client_id and vim.lsp.get_client_by_id(client_id) or nil
+      if not client or client.name ~= 'dartls' or not adapter.is_test_file(args.file) then
+        return
+      end
+
+      if wrapped_outline_clients[client.id] then
+        return
+      end
+
+      wrapped_outline_clients[client.id] = true
+      local original_outline = client.handlers['dart/textDocument/publishOutline']
+      client.handlers['dart/textDocument/publishOutline'] = function(_, data)
+        if original_outline then
+          original_outline(_, data)
+        end
+        on_outline_changed(data)
+      end
+    end,
+  })
 end
 
 ---@async
@@ -229,6 +284,7 @@ end
 
 setmetatable(adapter, {
   __call = function(_, config)
+    config = config or {}
     if config.command then
       command = config.command
     end
@@ -238,23 +294,10 @@ setmetatable(adapter, {
     if config.additional_args then
       additional_args = config.additional_args
     end
-    if config.use_lsp or true then
-      vim.api.nvim_create_autocmd('LspAttach', {
-        callback = function(args)
-          local is_test_file = adapter.is_test_file(args.file)
-          local client = vim.lsp.get_client_by_id(args.data.client_id)
-          if client.name == 'dartls' and is_test_file then
-            local originalOutline = client.handlers['dart/textDocument/publishOutline']
-            client.handlers['dart/textDocument/publishOutline'] = function(_, data)
-              if originalOutline then
-                originalOutline(_, data)
-              end
-              on_outline_changed(data)
-            end
-          end
-        end,
-      })
+    if config.use_lsp ~= nil then
+      use_lsp = config.use_lsp
     end
+    register_lsp_outline_handler()
     return adapter
   end,
 })

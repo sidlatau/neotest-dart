@@ -3,6 +3,24 @@ local async = require('neotest.async')
 
 local M = {}
 
+local function flatten(list)
+  local result = {}
+
+  local function visit(value)
+    if type(value) == 'table' then
+      for _, item in ipairs(value) do
+        visit(item)
+      end
+      return
+    end
+
+    table.insert(result, value)
+  end
+
+  visit(list)
+  return result
+end
+
 local function get_test_names_by_ids(parsed_jsons)
   local map = {}
 
@@ -116,8 +134,10 @@ end
 
 ---@param test_result table dart test result
 ---@param unparsable_lines table lines that was not possible to convert to json
+---@param opts table?
 ---@returns string path to output file
-local function prepare_neotest_output(test_result, unparsable_lines)
+local function prepare_neotest_output(test_result, unparsable_lines, opts)
+  opts = opts or {}
   local fname = async.fn.tempname()
   local file_output = {}
   if unparsable_lines then
@@ -147,8 +167,29 @@ local function prepare_neotest_output(test_result, unparsable_lines)
     table.insert(file_output, 'Elapsed: ' .. test_time)
   end
   local flatten = vim.iter(file_output):flatten():totable()
+  if opts.write_output == false then
+    return table.concat(flatten, '\n')
+  end
   vim.fn.writefile(flatten, fname, 'b')
   return fname
+end
+
+local function get_diagnostic_line(text)
+  if not text then
+    return nil
+  end
+
+  local patterns = {
+    '[^%s:]+_test%.dart line (%d+)',
+    '[^%s:]+_test%.dart (%d+):',
+  }
+
+  for _, pattern in ipairs(patterns) do
+    local _, _, str = text:find(pattern)
+    if str then
+      return tonumber(str) - 1
+    end
+  end
 end
 
 local function construct_diagnostic_errors(test_result)
@@ -156,18 +197,12 @@ local function construct_diagnostic_errors(test_result)
   local message
   if test_result.status == 'failed' then
     if test_result.message then
-      local _, _, str = test_result.message:find('test.dart line (%d+)')
-      if str then
-        line = tonumber(str) - 1
-      end
+      line = get_diagnostic_line(test_result.message)
       message = test_result.message
     end
     if test_result.error then
       if test_result.stack_trace then
-        local _, _, str = test_result.stack_trace:find('test.dart (%d+):')
-        if str then
-          line = tonumber(str) - 1
-        end
+        line = get_diagnostic_line(test_result.stack_trace) or line
       end
       if not message then
         message = test_result.error
@@ -185,7 +220,7 @@ local function construct_diagnostic_errors(test_result)
   end
 end
 
-M.parse_lines = function(tree, lines, outline)
+M.parse_lines = function(tree, lines, outline, opts)
   local tests, unparsable_lines = marshal_test_results(lines)
   local results = {}
   for _, node in tree:iter_nodes() do
@@ -197,7 +232,7 @@ M.parse_lines = function(tree, lines, outline)
         local neotest_result = {
           status = construct_neotest_status(test_result),
           short = highlight_as_error(test_result.message),
-          output = prepare_neotest_output(test_result, unparsable_lines),
+          output = prepare_neotest_output(test_result, unparsable_lines, opts),
           errors = construct_diagnostic_errors(test_result),
         }
         results[value.id] = neotest_result
