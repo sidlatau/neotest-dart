@@ -38,6 +38,26 @@ local function flatten(list)
   return result
 end
 
+local function uses_flutter(command_to_check)
+  return command_to_check:find('flutter', 1, true) ~= nil
+end
+
+local function uses_fvm(command_to_check)
+  return vim.startswith(command_to_check, 'fvm ')
+end
+
+local function resolve_dap_command()
+  local dap_command = uses_flutter(command) and 'flutter' or 'dart'
+
+  if uses_fvm(command) then
+    local dap_bin_symlink =
+      utils.join_path(vim.loop.cwd(), '.fvm', 'flutter_sdk', 'bin', dap_command)
+    return vim.loop.fs_realpath(dap_bin_symlink) or dap_command
+  end
+
+  return dap_command
+end
+
 function adapter.is_test_file(file_path)
   if not vim.endswith(file_path, '.dart') then
     return false
@@ -111,7 +131,11 @@ local function construct_test_argument(position, strategy)
       table.insert(test_argument, '"' .. test_name .. '"')
     end
   end
-  table.insert(test_argument, '--no-pub')
+
+  if uses_flutter(command) then
+    table.insert(test_argument, '--no-pub')
+  end
+
   return test_argument
 end
 
@@ -123,16 +147,11 @@ local function get_strategy_config(strategy, path, script_args)
       if not status_ok then
         return
       end
-      local dap_command = 'flutter'
-      if command:find('fvm ') ~= nil then
-        local flutter_bin_symlink =
-          utils.join_path(vim.loop.cwd(), '.fvm', 'flutter_sdk', 'bin', 'flutter')
-        dap_command = vim.loop.fs_realpath(flutter_bin_symlink) or 'flutter'
-      end
+      local dap_command = resolve_dap_command()
       dap.adapters.dart_test = {
         type = 'executable',
         command = dap_command,
-        args = { 'debug-adapter', '--test' },
+        args = { uses_flutter(command) and 'debug-adapter' or 'debug_adapter', '--test' },
         options = { -- Dartls is slow to start so avoid warnings from nvim-dap
           initialize_timeout_sec = 30,
         },

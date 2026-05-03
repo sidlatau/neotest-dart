@@ -280,6 +280,263 @@ test('adapter respects use_lsp and avoids duplicate wrapping', function()
   end
 end)
 
+test('adapter omits no-pub for dart command and uses dart debug adapter', function()
+  reset_modules({
+    'neotest.async',
+    'plenary.path',
+    'neotest.lib',
+    'neotest-dart.utils',
+    'neotest-dart.parser',
+    'neotest-dart.lsp_outline_parser',
+    'neotest-dart',
+    'dap',
+  })
+
+  local registered_adapter
+  package.preload['neotest.async'] = function()
+    return {
+      fn = {
+        tempname = function()
+          return '/tmp/neotest-dart-results'
+        end,
+      },
+    }
+  end
+  package.preload['plenary.path'] = function()
+    return { path = { sep = '/' } }
+  end
+  package.preload['neotest.lib'] = function()
+    return {
+      files = {
+        match_root_pattern = function()
+          return function()
+            return '/tmp/project'
+          end
+        end,
+        read = function()
+          return ''
+        end,
+      },
+      treesitter = {
+        parse_positions = function()
+          return {
+            iter = function()
+              return function()
+                return nil
+              end
+            end,
+          }
+        end,
+      },
+    }
+  end
+  package.preload['neotest-dart.utils'] = function()
+    return {
+      get_test_name_from_outline = function()
+        return nil
+      end,
+      remove_surrounding_quates = function(name)
+        return name
+      end,
+      construct_test_name = function()
+        return 'works'
+      end,
+      join_path = function(...)
+        return table.concat({ ... }, '/')
+      end,
+    }
+  end
+  package.preload['neotest-dart.parser'] = function()
+    return {
+      parse_lines = function()
+        return {}
+      end,
+    }
+  end
+  package.preload['neotest-dart.lsp_outline_parser'] = function()
+    return {
+      parse = function()
+        return {}
+      end,
+    }
+  end
+  package.preload['dap'] = function()
+    return {
+      adapters = setmetatable({}, {
+        __newindex = function(_, key, value)
+          if key == 'dart_test' then
+            registered_adapter = value
+          end
+        end,
+      }),
+    }
+  end
+
+  local original_create_autocmd = vim.api.nvim_create_autocmd
+  vim.api.nvim_create_autocmd = function() end
+
+  local ok, err = pcall(function()
+    local adapter = require('neotest-dart')
+    adapter({ command = 'dart', use_lsp = false })
+
+    local spec = adapter.build_spec({
+      tree = {
+        data = function()
+          return {
+            type = 'test',
+            id = '/tmp/project/test/foo_test.dart::"works"',
+            path = '/tmp/project/test/foo_test.dart',
+            range = { 1, 0, 1, 4 },
+          }
+        end,
+      },
+      strategy = 'dap',
+    })
+
+    assert(
+      spec.command:match('^dart test /tmp/project/test/foo_test%.dart '),
+      'Expected dart test command'
+    )
+    assert(spec.command:match('%-%-plain%-name works'), 'Expected plain-name argument')
+    assert(not spec.command:match('%-%-no%-pub'), 'Did not expect --no-pub for dart command')
+    assert_eq(registered_adapter.command, 'dart')
+    assert_eq(registered_adapter.args, { 'debug_adapter', '--test' })
+  end)
+
+  vim.api.nvim_create_autocmd = original_create_autocmd
+  if not ok then
+    error(err)
+  end
+end)
+
+test('adapter keeps no-pub for flutter command and uses flutter debug adapter', function()
+  reset_modules({
+    'neotest.async',
+    'plenary.path',
+    'neotest.lib',
+    'neotest-dart.utils',
+    'neotest-dart.parser',
+    'neotest-dart.lsp_outline_parser',
+    'neotest-dart',
+    'dap',
+  })
+
+  local registered_adapter
+  package.preload['neotest.async'] = function()
+    return {
+      fn = {
+        tempname = function()
+          return '/tmp/neotest-dart-results'
+        end,
+      },
+    }
+  end
+  package.preload['plenary.path'] = function()
+    return { path = { sep = '/' } }
+  end
+  package.preload['neotest.lib'] = function()
+    return {
+      files = {
+        match_root_pattern = function()
+          return function()
+            return '/tmp/project'
+          end
+        end,
+        read = function()
+          return ''
+        end,
+      },
+      treesitter = {
+        parse_positions = function()
+          return {
+            iter = function()
+              return function()
+                return nil
+              end
+            end,
+          }
+        end,
+      },
+    }
+  end
+  package.preload['neotest-dart.utils'] = function()
+    return {
+      get_test_name_from_outline = function()
+        return nil
+      end,
+      remove_surrounding_quates = function(name)
+        return name
+      end,
+      construct_test_name = function()
+        return 'works'
+      end,
+      join_path = function(...)
+        return table.concat({ ... }, '/')
+      end,
+    }
+  end
+  package.preload['neotest-dart.parser'] = function()
+    return {
+      parse_lines = function()
+        return {}
+      end,
+    }
+  end
+  package.preload['neotest-dart.lsp_outline_parser'] = function()
+    return {
+      parse = function()
+        return {}
+      end,
+    }
+  end
+  package.preload['dap'] = function()
+    return {
+      adapters = setmetatable({}, {
+        __newindex = function(_, key, value)
+          if key == 'dart_test' then
+            registered_adapter = value
+          end
+        end,
+      }),
+    }
+  end
+
+  local original_create_autocmd = vim.api.nvim_create_autocmd
+  vim.api.nvim_create_autocmd = function() end
+
+  local ok, err = pcall(function()
+    local adapter = require('neotest-dart')
+    adapter({ command = 'flutter', use_lsp = false })
+
+    local spec = adapter.build_spec({
+      tree = {
+        data = function()
+          return {
+            type = 'test',
+            id = '/tmp/project/test/foo_test.dart::"works"',
+            path = '/tmp/project/test/foo_test.dart',
+            range = { 1, 0, 1, 4 },
+          }
+        end,
+      },
+      strategy = 'dap',
+    })
+
+    assert(
+      spec.command:match('^flutter test /tmp/project/test/foo_test%.dart '),
+      'Expected flutter test command'
+    )
+    assert(spec.command:match('%-%-no%-pub'), 'Expected --no-pub for flutter command')
+    assert_eq(registered_adapter.command, 'flutter')
+    assert_eq(registered_adapter.args, { 'debug-adapter', '--test' })
+  end)
+
+  vim.api.nvim_create_autocmd = original_create_autocmd
+  if not ok then
+    error(err)
+  end
+end)
+
 if #failures > 0 then
   error(table.concat(failures, '\n\n'))
 end
