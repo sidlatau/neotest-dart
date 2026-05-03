@@ -118,6 +118,166 @@ test('parser handles generic dart test filenames in diagnostics', function()
   assert(result.output:match('Elapsed: 0%.042s%.'), 'Expected elapsed time in in-memory output')
 end)
 
+test('parser matches runtime tests by location instead of name', function()
+  reset_modules({ 'neotest.async', 'neotest-dart.utils', 'neotest-dart.parser' })
+  package.preload['neotest.async'] = function()
+    return {
+      fn = {
+        tempname = function()
+          return '/tmp/neotest-dart-output'
+        end,
+      },
+    }
+  end
+
+  local parser = require('neotest-dart.parser')
+  local tree = {
+    iter_nodes = function()
+      local yielded = false
+      local node = {
+        data = function()
+          return {
+            type = 'test',
+            id = '/tmp/project/test/foo_test.dart::"works"',
+            name = 'works',
+            path = '/tmp/project/test/foo_test.dart',
+            range = { 4, 2, 6, 7 },
+          }
+        end,
+      }
+
+      return function()
+        if yielded then
+          return nil
+        end
+        yielded = true
+        return 1, node
+      end
+    end,
+  }
+
+  local lines = {
+    vim.json.encode({
+      type = 'testStart',
+      test = {
+        id = 1,
+        name = 'generated runtime name',
+        url = 'file:///tmp/project/test/foo_test.dart',
+        line = 5,
+        column = 3,
+      },
+    }),
+    vim.json.encode({
+      type = 'testDone',
+      testID = 1,
+      result = 'success',
+      hidden = false,
+      skipped = false,
+      time = 42,
+    }),
+  }
+
+  local results = parser.parse_lines(tree, lines, {}, { write_output = false })
+  local result = results['/tmp/project/test/foo_test.dart::"works"']
+  assert(result, 'Expected runtime test to be matched by location')
+  assert_eq(result.status, 'passed')
+end)
+
+test('parser aggregates multiple runtime tests from same source location', function()
+  reset_modules({ 'neotest.async', 'neotest-dart.utils', 'neotest-dart.parser' })
+  package.preload['neotest.async'] = function()
+    return {
+      fn = {
+        tempname = function()
+          return '/tmp/neotest-dart-output'
+        end,
+      },
+    }
+  end
+
+  local parser = require('neotest-dart.parser')
+  local tree = {
+    iter_nodes = function()
+      local yielded = false
+      local node = {
+        data = function()
+          return {
+            type = 'test',
+            id = '/tmp/project/test/foo_test.dart::"loop"',
+            name = 'loop',
+            path = '/tmp/project/test/foo_test.dart',
+            range = { 9, 4, 12, 6 },
+          }
+        end,
+      }
+
+      return function()
+        if yielded then
+          return nil
+        end
+        yielded = true
+        return 1, node
+      end
+    end,
+  }
+
+  local lines = {
+    vim.json.encode({
+      type = 'testStart',
+      test = {
+        id = 1,
+        name = 'case 1',
+        root_url = 'file:///tmp/project/test/foo_test.dart',
+        root_line = 10,
+        root_column = 5,
+        url = 'file:///tmp/project/test/helpers.dart',
+        line = 30,
+        column = 2,
+      },
+    }),
+    vim.json.encode({
+      type = 'testDone',
+      testID = 1,
+      result = 'success',
+      hidden = false,
+      skipped = false,
+      time = 11,
+    }),
+    vim.json.encode({
+      type = 'testStart',
+      test = {
+        id = 2,
+        name = 'case 2',
+        url = 'file:///tmp/project/test/foo_test.dart',
+        line = 10,
+        column = 5,
+      },
+    }),
+    vim.json.encode({
+      type = 'error',
+      testID = 2,
+      error = "'file:///tmp/project/test/foo_test.dart': Expected true but was false",
+      stackTrace = 'foo_test.dart line 14',
+      isFailure = true,
+    }),
+    vim.json.encode({
+      type = 'testDone',
+      testID = 2,
+      result = 'failure',
+      hidden = false,
+      skipped = false,
+      time = 17,
+    }),
+  }
+
+  local results = parser.parse_lines(tree, lines, {}, { write_output = false })
+  local result = results['/tmp/project/test/foo_test.dart::"loop"']
+  assert(result, 'Expected loop-generated tests to be aggregated')
+  assert_eq(result.status, 'failed')
+  assert(result.output:match('Expected true but was false'), 'Expected combined failure output')
+  assert_eq(result.errors[1].line, 13)
+end)
+
 test('adapter respects use_lsp and avoids duplicate wrapping', function()
   reset_modules({
     'neotest.async',
@@ -191,6 +351,9 @@ test('adapter respects use_lsp and avoids duplicate wrapping', function()
       end,
       construct_test_name = function()
         return 'works'
+      end,
+      position_target = function(position)
+        return string.format('%s?line=%s', position.path, position.range[1] + 1)
       end,
       join_path = function(...)
         return table.concat({ ... }, '/')
@@ -280,7 +443,123 @@ test('adapter respects use_lsp and avoids duplicate wrapping', function()
   end
 end)
 
-test('adapter omits no-pub for dart command and uses dart debug adapter', function()
+test('adapter uses positional path when running individual tests', function()
+  reset_modules({
+    'neotest.async',
+    'plenary.path',
+    'neotest.lib',
+    'neotest-dart.utils',
+    'neotest-dart.parser',
+    'neotest-dart.lsp_outline_parser',
+    'neotest-dart',
+  })
+
+  package.preload['neotest.async'] = function()
+    return {
+      fn = {
+        tempname = function()
+          return '/tmp/neotest-dart-results'
+        end,
+      },
+    }
+  end
+  package.preload['plenary.path'] = function()
+    return { path = { sep = '/' } }
+  end
+  package.preload['neotest.lib'] = function()
+    return {
+      files = {
+        match_root_pattern = function()
+          return function()
+            return '/tmp/project'
+          end
+        end,
+        read = function()
+          return ''
+        end,
+      },
+      treesitter = {
+        parse_positions = function()
+          return {
+            iter = function()
+              return function()
+                return nil
+              end
+            end,
+          }
+        end,
+      },
+    }
+  end
+  package.preload['neotest-dart.utils'] = function()
+    return {
+      get_test_name_from_outline = function()
+        return nil
+      end,
+      remove_surrounding_quates = function(name)
+        return name
+      end,
+      construct_test_name = function()
+        return 'works'
+      end,
+      position_target = function(position)
+        return string.format('%s?line=%s', position.path, position.range[1] + 1)
+      end,
+      join_path = function(...)
+        return table.concat({ ... }, '/')
+      end,
+    }
+  end
+  package.preload['neotest-dart.parser'] = function()
+    return {
+      parse_lines = function()
+        return {}
+      end,
+    }
+  end
+  package.preload['neotest-dart.lsp_outline_parser'] = function()
+    return {
+      parse = function()
+        return {}
+      end,
+    }
+  end
+
+  local original_create_autocmd = vim.api.nvim_create_autocmd
+  vim.api.nvim_create_autocmd = function() end
+
+  local ok, err = pcall(function()
+    local adapter = require('neotest-dart')
+    adapter({ command = 'dart', use_lsp = false })
+
+    local spec = adapter.build_spec({
+      tree = {
+        data = function()
+          return {
+            type = 'test',
+            id = '/tmp/project/test/foo_test.dart::"works"',
+            name = 'works',
+            path = '/tmp/project/test/foo_test.dart',
+            range = { 4, 2, 6, 7 },
+          }
+        end,
+      },
+    })
+
+    assert(
+      spec.command:match('^dart test "/tmp/project/test/foo_test%.dart%?line=5" '),
+      'Expected positional test target'
+    )
+    assert(not spec.command:match('%-%-plain%-name'), 'Did not expect plain-name argument')
+  end)
+
+  vim.api.nvim_create_autocmd = original_create_autocmd
+  if not ok then
+    error(err)
+  end
+end)
+
+test('adapter uses positional program for dart debug adapter', function()
   reset_modules({
     'neotest.async',
     'plenary.path',
@@ -340,6 +619,9 @@ test('adapter omits no-pub for dart command and uses dart debug adapter', functi
       end,
       construct_test_name = function()
         return 'works'
+      end,
+      position_target = function(position)
+        return string.format('%s?line=%s', position.path, position.range[1] + 1)
       end,
       join_path = function(...)
         return table.concat({ ... }, '/')
@@ -397,8 +679,9 @@ test('adapter omits no-pub for dart command and uses dart debug adapter', functi
       spec.command:match('^dart test /tmp/project/test/foo_test%.dart '),
       'Expected dart test command'
     )
-    assert(spec.command:match('%-%-plain%-name works'), 'Expected plain-name argument')
     assert(not spec.command:match('%-%-no%-pub'), 'Did not expect --no-pub for dart command')
+    assert_eq(spec.strategy.program, '/tmp/project/test/foo_test.dart?line=2')
+    assert_eq(spec.strategy.args, {})
     assert_eq(registered_adapter.command, 'dart')
     assert_eq(registered_adapter.args, { 'debug_adapter', '--test' })
   end)
@@ -409,7 +692,7 @@ test('adapter omits no-pub for dart command and uses dart debug adapter', functi
   end
 end)
 
-test('adapter keeps no-pub for flutter command and uses flutter debug adapter', function()
+test('adapter uses positional program for flutter debug adapter', function()
   reset_modules({
     'neotest.async',
     'plenary.path',
@@ -469,6 +752,9 @@ test('adapter keeps no-pub for flutter command and uses flutter debug adapter', 
       end,
       construct_test_name = function()
         return 'works'
+      end,
+      position_target = function(position)
+        return string.format('%s?line=%s', position.path, position.range[1] + 1)
       end,
       join_path = function(...)
         return table.concat({ ... }, '/')
@@ -527,6 +813,8 @@ test('adapter keeps no-pub for flutter command and uses flutter debug adapter', 
       'Expected flutter test command'
     )
     assert(spec.command:match('%-%-no%-pub'), 'Expected --no-pub for flutter command')
+    assert_eq(spec.strategy.program, '/tmp/project/test/foo_test.dart?line=2')
+    assert_eq(spec.strategy.args, { '--no-pub' })
     assert_eq(registered_adapter.command, 'flutter')
     assert_eq(registered_adapter.args, { 'debug-adapter', '--test' })
   end)

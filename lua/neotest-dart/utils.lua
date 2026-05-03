@@ -23,6 +23,26 @@ M.get_test_name_from_outline = function(position, outline)
   return outline[outline_key]
 end
 
+---@param position table
+---@return string?
+M.position_key = function(position)
+  if not position.path or not position.range then
+    return nil
+  end
+
+  return string.format('%s::%s:%s', position.path, position.range[1] + 1, position.range[2] + 1)
+end
+
+---@param position table
+---@return string
+M.position_target = function(position)
+  if position.type ~= 'test' and position.type ~= 'namespace' then
+    return position.path
+  end
+
+  return string.format('%s?line=%s', position.path, position.range[1] + 1)
+end
+
 --- position and outline contains information enought to construct test name
 --- @returns string
 M.construct_test_name = function(position, outline)

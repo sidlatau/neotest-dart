@@ -121,17 +121,6 @@ end
 
 local function construct_test_argument(position, strategy)
   local test_argument = {}
-  if position.type == 'test' then
-    local test_name = utils.construct_test_name(position, outline)
-    table.insert(test_argument, '--plain-name')
-    if strategy == 'dap' then
-      table.insert(test_argument, test_name)
-    else
-      test_name = test_name:gsub('"', '\\"')
-      table.insert(test_argument, '"' .. test_name .. '"')
-    end
-  end
-
   if uses_flutter(command) then
     table.insert(test_argument, '--no-pub')
   end
@@ -207,12 +196,13 @@ function adapter.build_spec(args)
   end
 
   local test_argument = construct_test_argument(position, args.strategy)
+  local test_target = utils.position_target(position)
 
   if position.type == 'test' or position.type == 'file' or position.type == 'namespace' then
     command_parts = {
       command,
       'test',
-      position.path,
+      args.strategy == 'dap' and position.path or string.format('"%s"', test_target),
       test_argument,
       '--reporter',
       'json',
@@ -229,7 +219,8 @@ function adapter.build_spec(args)
   end
   vim.list_extend(command_parts, extra_args)
 
-  local strategy_config = get_strategy_config(args.strategy, position.path, test_argument)
+  local strategy_target = args.strategy == 'dap' and test_target or position.path
+  local strategy_config = get_strategy_config(args.strategy, strategy_target, test_argument)
   local full_command = table.concat(vim.iter(command_parts):flatten():totable(), ' ')
 
   return {
