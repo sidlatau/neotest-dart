@@ -83,7 +83,8 @@ local function marshal_test_results(lines)
           end
 
           if test_data.position_key then
-            runtimes_by_position[test_data.position_key] = runtimes_by_position[test_data.position_key] or {}
+            runtimes_by_position[test_data.position_key] = runtimes_by_position[test_data.position_key]
+              or {}
             table.insert(runtimes_by_position[test_data.position_key], test_data)
           end
         end
@@ -249,15 +250,18 @@ local function merge_test_results(test_results)
         merged.status = 'skipped'
       end
 
-      merged.skipped = merged.skipped == nil and test_result.skipped or (merged.skipped and test_result.skipped)
+      merged.skipped = merged.skipped == nil and test_result.skipped
+        or (merged.skipped and test_result.skipped)
       merged.time = (merged.time or 0) + (test_result.time or 0)
 
       append_message(merged, test_result.message)
       if test_result.error then
-        merged.error = merged.error and (merged.error .. '\n' .. test_result.error) or test_result.error
+        merged.error = merged.error and (merged.error .. '\n' .. test_result.error)
+          or test_result.error
       end
       if test_result.stack_trace then
-        merged.stack_trace = merged.stack_trace and (merged.stack_trace .. '\n' .. test_result.stack_trace)
+        merged.stack_trace = merged.stack_trace
+            and (merged.stack_trace .. '\n' .. test_result.stack_trace)
           or test_result.stack_trace
       end
     end
